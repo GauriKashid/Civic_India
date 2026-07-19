@@ -59,6 +59,11 @@ export default function TrackReport() {
     rejected: { label: t('status_rejected'), color: 'bg-red-100 text-red-800', icon: AlertCircle },
   };
 
+  const getStatusConfig = (status: ReportStatus | null | undefined) => {
+    const s = status || 'submitted';
+    return statusConfig[s] || statusConfig['submitted'];
+  };
+
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -201,8 +206,8 @@ export default function TrackReport() {
                     <CardTitle className="text-xl">{report.title}</CardTitle>
                     <CardDescription className="font-mono">{report.report_number}</CardDescription>
                   </div>
-                  <Badge className={statusConfig[report.status].color}>
-                    {statusConfig[report.status].label}
+                  <Badge className={getStatusConfig(report.status).color}>
+                    {getStatusConfig(report.status).label}
                   </Badge>
                 </div>
               </CardHeader>
@@ -352,8 +357,8 @@ export default function TrackReport() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <p className="font-medium truncate">{r.title}</p>
-                              <Badge className={statusConfig[r.status].color} variant="secondary">
-                                {statusConfig[r.status].label}
+                              <Badge className={getStatusConfig(r.status).color} variant="secondary">
+                                {getStatusConfig(r.status).label}
                               </Badge>
                             </div>
                             <p className="text-sm text-muted-foreground">

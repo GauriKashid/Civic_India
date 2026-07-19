@@ -68,6 +68,153 @@ const translateCategoryDesc = (desc: string, t: (key: string) => string) => {
   return desc;
 };
 
+const fallbackQuizzes: Omit<Quiz, 'id'>[] = [
+  // Traffic Rules
+  {
+    category_id: 'Traffic Rules',
+    question: 'What is the minimum age for obtaining a driving license for a motorcycle in India?',
+    options: ['16 years', '18 years', '21 years', '14 years'],
+    correct_answer: 1,
+    points: 10
+  },
+  {
+    category_id: 'Traffic Rules',
+    question: 'What color is the stop signal on a traffic light?',
+    options: ['Green', 'Yellow', 'Red', 'Blue'],
+    correct_answer: 2,
+    points: 10
+  },
+  {
+    category_id: 'Traffic Rules',
+    question: 'What does a flashing yellow traffic light signal mean?',
+    options: ['Stop completely', 'Slow down and proceed with caution', 'Speed up to clear the intersection', 'Go at normal speed'],
+    correct_answer: 1,
+    points: 10
+  },
+  {
+    category_id: 'Traffic Rules',
+    question: 'On which side of the road must you drive in India?',
+    options: ['Right side', 'Left side', 'Middle of the road', 'Any side'],
+    correct_answer: 1,
+    points: 10
+  },
+  {
+    category_id: 'Traffic Rules',
+    question: 'What does a round sign with a red border and a diagonal line across a horn indicate?',
+    options: ['Honking allowed', 'Compulsory honking', 'Silence Zone / No Honking', 'Parking for vehicles'],
+    correct_answer: 2,
+    points: 10
+  },
+  // Civic Responsibilities
+  {
+    category_id: 'Civic Responsibilities',
+    question: 'Which of the following is a civic duty of every Indian citizen?',
+    options: ['Pay taxes', 'Vote in elections', 'Follow laws', 'All of the above'],
+    correct_answer: 3,
+    points: 10
+  },
+  {
+    category_id: 'Civic Responsibilities',
+    question: 'Which Article of the Indian Constitution outlines the Fundamental Duties of citizens?',
+    options: ['Article 21', 'Article 51A', 'Article 19', 'Article 32'],
+    correct_answer: 1,
+    points: 10
+  },
+  {
+    category_id: 'Civic Responsibilities',
+    question: 'What is the legal minimum voting age for citizens in India?',
+    options: ['21 years', '18 years', '25 years', '16 years'],
+    correct_answer: 1,
+    points: 10
+  },
+  {
+    category_id: 'Civic Responsibilities',
+    question: 'When was the Swachh Bharat Mission launched in India?',
+    options: ['15 August 2015', '2 October 2014', '26 January 2015', '14 November 2014'],
+    correct_answer: 1,
+    points: 10
+  },
+  {
+    category_id: 'Civic Responsibilities',
+    question: 'What does RTI stand for in Indian governance?',
+    options: ['Right to Independence', 'Right to Information', 'Right to Education', 'Right to Inspection'],
+    correct_answer: 1,
+    points: 10
+  },
+  // Environmental Awareness
+  {
+    category_id: 'Environmental Awareness',
+    question: 'What should you do with wet and dry waste at home?',
+    options: ['Mix them together', 'Burn them', 'Segregate them separately', 'Throw anywhere'],
+    correct_answer: 2,
+    points: 10
+  },
+  {
+    category_id: 'Environmental Awareness',
+    question: 'Which of the following is a biodegradable type of waste?',
+    options: ['Plastic bottles', 'Fruit and vegetable peels', 'Glass jars', 'Aluminium cans'],
+    correct_answer: 1,
+    points: 10
+  },
+  {
+    category_id: 'Environmental Awareness',
+    question: 'What is the primary objective of rainwater harvesting?',
+    options: ['Recharging the groundwater table', 'Generating hydroelectric power', 'Cleaning local roads', 'Increasing soil erosion'],
+    correct_answer: 0,
+    points: 10
+  },
+  {
+    category_id: 'Environmental Awareness',
+    question: 'What do the three "R"s of eco-friendly living stand for?',
+    options: ['React, Resolve, Recycle', 'Reduce, Reuse, Recycle', 'Replace, Reclaim, Restore', 'Rebuild, Renew, Recover'],
+    correct_answer: 1,
+    points: 10
+  },
+  {
+    category_id: 'Environmental Awareness',
+    question: 'Which gas is majorly responsible for trapping heat and causing global warming?',
+    options: ['Oxygen', 'Carbon Dioxide', 'Nitrogen', 'Hydrogen'],
+    correct_answer: 1,
+    points: 10
+  },
+  // Public Safety
+  {
+    category_id: 'Public Safety',
+    question: 'What is the emergency number for police in India?',
+    options: ['100', '101', '102', '108'],
+    correct_answer: 0,
+    points: 10
+  },
+  {
+    category_id: 'Public Safety',
+    question: 'What is the integrated single emergency helpline number in India (similar to 911)?',
+    options: ['100', '112', '101', '102'],
+    correct_answer: 1,
+    points: 10
+  },
+  {
+    category_id: 'Public Safety',
+    question: 'What is the emergency helpline number for calling fire services in India?',
+    options: ['101', '100', '108', '102'],
+    correct_answer: 0,
+    points: 10
+  },
+  {
+    category_id: 'Public Safety',
+    question: 'What should you do immediately if you experience an earthquake inside a building?',
+    options: ['Run to the elevator', 'Drop, Cover, and Hold on', 'Go up to the terrace', 'Stand near the windows'],
+    correct_answer: 1,
+    points: 10
+  },
+  {
+    category_id: 'Public Safety',
+    question: 'Which authority is primarily responsible for disaster management at the national level in India?',
+    options: ['NDMA (National Disaster Management Authority)', 'DRDO', 'ISRO', 'NITI Aayog'],
+    correct_answer: 0,
+    points: 10
+  }
+];
+
 export default function Education() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -90,13 +237,36 @@ export default function Education() {
         .from('quiz_categories')
         .select('*')
         .order('name');
-      setCategories(catData || []);
+      const categoriesList = catData || [];
+      setCategories(categoriesList);
 
       // Fetch all quizzes
       const { data: quizData } = await supabase
         .from('quizzes')
         .select('*');
-      setQuizzes((quizData || []).map(q => ({ ...q, options: q.options as string[] })));
+      
+      const dbQuizzes = (quizData || []).map(q => ({ ...q, options: q.options as string[] }));
+      const augmentedQuizzes = [...dbQuizzes];
+
+      // Augment with fallback quizzes if they are missing
+      fallbackQuizzes.forEach((fallback, index) => {
+        const cat = categoriesList.find(c => c.name === fallback.category_id);
+        if (cat) {
+          const alreadyExists = dbQuizzes.some(dbQ => dbQ.question.toLowerCase().trim() === fallback.question.toLowerCase().trim());
+          if (!alreadyExists) {
+            augmentedQuizzes.push({
+              id: `fallback-${index}`,
+              question: fallback.question,
+              options: fallback.options,
+              correct_answer: fallback.correct_answer,
+              points: fallback.points,
+              category_id: cat.id
+            });
+          }
+        }
+      });
+
+      setQuizzes(augmentedQuizzes);
 
       // Fetch user progress if logged in
       if (user) {
@@ -154,13 +324,19 @@ export default function Education() {
       const alreadyAnswered = userProgress.some(p => p.quiz_id === currentQuiz.id);
       
       if (!alreadyAnswered) {
-        await supabase
-          .from('user_quiz_progress')
-          .insert({
-            user_id: user.id,
-            quiz_id: currentQuiz.id,
-            is_correct: isCorrect,
-          });
+        try {
+          if (!currentQuiz.id.startsWith('fallback-')) {
+            await supabase
+              .from('user_quiz_progress')
+              .insert({
+                user_id: user.id,
+                quiz_id: currentQuiz.id,
+                is_correct: isCorrect,
+              });
+          }
+        } catch (dbErr) {
+          console.warn('Bypassed DB write for fallback quiz:', dbErr);
+        }
 
         setUserProgress(prev => [...prev, { quiz_id: currentQuiz.id, is_correct: isCorrect }]);
       }

@@ -413,3 +413,142 @@ SELECT
   0,
   10
 FROM public.quiz_categories c WHERE c.name = 'Public Safety';
+
+-- Additional Traffic Rules Quizzes
+INSERT INTO public.quizzes (category_id, question, options, correct_answer, points) 
+SELECT 
+  c.id,
+  'What does a flashing yellow traffic light signal mean?',
+  '["Stop completely", "Slow down and proceed with caution", "Speed up to clear the intersection", "Go at normal speed"]'::jsonb,
+  1,
+  10
+FROM public.quiz_categories c WHERE c.name = 'Traffic Rules';
+
+INSERT INTO public.quizzes (category_id, question, options, correct_answer, points) 
+SELECT 
+  c.id,
+  'On which side of the road must you drive in India?',
+  '["Right side", "Left side", "Middle of the road", "Any side"]'::jsonb,
+  1,
+  10
+FROM public.quiz_categories c WHERE c.name = 'Traffic Rules';
+
+INSERT INTO public.quizzes (category_id, question, options, correct_answer, points) 
+SELECT 
+  c.id,
+  'What does a round sign with a red border and a diagonal line across a horn indicate?',
+  '["Honking allowed", "Compulsory honking", "Silence Zone / No Honking", "Parking for vehicles"]'::jsonb,
+  2,
+  10
+FROM public.quiz_categories c WHERE c.name = 'Traffic Rules';
+
+-- Additional Civic Responsibilities Quizzes
+INSERT INTO public.quizzes (category_id, question, options, correct_answer, points) 
+SELECT 
+  c.id,
+  'Which Article of the Indian Constitution outlines the Fundamental Duties of citizens?',
+  '["Article 21", "Article 51A", "Article 19", "Article 32"]'::jsonb,
+  1,
+  10
+FROM public.quiz_categories c WHERE c.name = 'Civic Responsibilities';
+
+INSERT INTO public.quizzes (category_id, question, options, correct_answer, points) 
+SELECT 
+  c.id,
+  'What is the legal minimum voting age for citizens in India?',
+  '["21 years", "18 years", "25 years", "16 years"]'::jsonb,
+  1,
+  10
+FROM public.quiz_categories c WHERE c.name = 'Civic Responsibilities';
+
+INSERT INTO public.quizzes (category_id, question, options, correct_answer, points) 
+SELECT 
+  c.id,
+  'When was the Swachh Bharat Mission launched in India?',
+  '["15 August 2015", "2 October 2014", "26 January 2015", "14 November 2014"]'::jsonb,
+  1,
+  10
+FROM public.quiz_categories c WHERE c.name = 'Civic Responsibilities';
+
+INSERT INTO public.quizzes (category_id, question, options, correct_answer, points) 
+SELECT 
+  c.id,
+  'What does RTI stand for in Indian governance?',
+  '["Right to Independence", "Right to Information", "Right to Education", "Right to Inspection"]'::jsonb,
+  1,
+  10
+FROM public.quiz_categories c WHERE c.name = 'Civic Responsibilities';
+
+-- Additional Environmental Awareness Quizzes
+INSERT INTO public.quizzes (category_id, question, options, correct_answer, points) 
+SELECT 
+  c.id,
+  'Which of the following is a biodegradable type of waste?',
+  '["Plastic bottles", "Fruit and vegetable peels", "Glass jars", "Aluminium cans"]'::jsonb,
+  1,
+  10
+FROM public.quiz_categories c WHERE c.name = 'Environmental Awareness';
+
+INSERT INTO public.quizzes (category_id, question, options, correct_answer, points) 
+SELECT 
+  c.id,
+  'What is the primary objective of rainwater harvesting?',
+  '["Recharging the groundwater table", "Generating hydroelectric power", "Cleaning local roads", "Increasing soil erosion"]'::jsonb,
+  0,
+  10
+FROM public.quiz_categories c WHERE c.name = 'Environmental Awareness';
+
+INSERT INTO public.quizzes (category_id, question, options, correct_answer, points) 
+SELECT 
+  c.id,
+  'What do the three "R"s of eco-friendly living stand for?',
+  '["React, Resolve, Recycle", "Reduce, Reuse, Recycle", "Replace, Reclaim, Restore", "Rebuild, Renew, Recover"]'::jsonb,
+  1,
+  10
+FROM public.quiz_categories c WHERE c.name = 'Environmental Awareness';
+
+INSERT INTO public.quizzes (category_id, question, options, correct_answer, points) 
+SELECT 
+  c.id,
+  'Which gas is majorly responsible for trapping heat and causing global warming?',
+  '["Oxygen", "Carbon Dioxide", "Nitrogen", "Hydrogen"]'::jsonb,
+  1,
+  10
+FROM public.quiz_categories c WHERE c.name = 'Environmental Awareness';
+
+-- Additional Public Safety Quizzes
+INSERT INTO public.quizzes (category_id, question, options, correct_answer, points) 
+SELECT 
+  c.id,
+  'What is the integrated single emergency helpline number in India (similar to 911)?',
+  '["100", "112", "101", "102"]'::jsonb,
+  1,
+  10
+FROM public.quiz_categories c WHERE c.name = 'Public Safety';
+
+INSERT INTO public.quizzes (category_id, question, options, correct_answer, points) 
+SELECT 
+  c.id,
+  'What is the emergency helpline number for calling fire services in India?',
+  '["101", "100", "108", "102"]'::jsonb,
+  0,
+  10
+FROM public.quiz_categories c WHERE c.name = 'Public Safety';
+
+INSERT INTO public.quizzes (category_id, question, options, correct_answer, points) 
+SELECT 
+  c.id,
+  'What should you do immediately if you experience an earthquake inside a building?',
+  '["Run to the elevator", "Drop, Cover, and Hold on", "Go up to the terrace", "Stand near the windows"]'::jsonb,
+  1,
+  10
+FROM public.quiz_categories c WHERE c.name = 'Public Safety';
+
+INSERT INTO public.quizzes (category_id, question, options, correct_answer, points) 
+SELECT 
+  c.id,
+  'Which authority is primarily responsible for disaster management at the national level in India?',
+  '["NDMA (National Disaster Management Authority)", "DRDO", "ISRO", "NITI Aayog"]'::jsonb,
+  0,
+  10
+FROM public.quiz_categories c WHERE c.name = 'Public Safety';
