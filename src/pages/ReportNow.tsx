@@ -12,6 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
+import { classifyCivicIssue, findDuplicateReport, CivicAiSuggestion, DuplicateReport } from '@/lib/civicAi';
 import { 
   MapPin, 
   Upload, 
@@ -25,7 +27,8 @@ import {
   TreePine,
   MoreHorizontal,
   Loader2,
-  CheckCircle
+  CheckCircle,
+  Sparkles
 } from 'lucide-react';
 
 export default function ReportNow() {
@@ -73,6 +76,25 @@ export default function ReportNow() {
   const [submitted, setSubmitted] = useState(false);
   const [reportNumber, setReportNumber] = useState('');
 
+  // CivicAI state
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<CivicAiSuggestion | null>(null);
+  const [allReports, setAllReports] = useState<Array<{ id: string; report_number: string; title: string; status: string; category: string; city?: string; created_at: string }>>([]);
+  const [duplicateReport, setDuplicateReport] = useState<DuplicateReport | null>(null);
+
+  const fetchAllReports = async () => {
+    try {
+      const { data } = await supabase.from('reports').select('*');
+      setAllReports(data || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllReports();
+  }, []);
+
   useEffect(() => {
     if (!authLoading && !user) {
       toast({
@@ -84,6 +106,16 @@ export default function ReportNow() {
     }
   }, [user, authLoading, navigate, toast]);
 
+  // AI duplicate check when city or category changes
+  useEffect(() => {
+    if (formData.city && formData.category) {
+      const dup = findDuplicateReport(formData.city, formData.category, allReports);
+      setDuplicateReport(dup);
+    } else {
+      setDuplicateReport(null);
+    }
+  }, [formData.city, formData.category, allReports]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -91,6 +123,32 @@ export default function ReportNow() {
 
   const handleSelectChange = (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const triggerAiAnalysis = (desc: string) => {
+    if (desc.trim().length < 15) return;
+    setIsAiAnalyzing(true);
+    setAiSuggestion(null);
+    setTimeout(() => {
+      const suggestions = classifyCivicIssue(desc);
+      setAiSuggestion(suggestions);
+      setIsAiAnalyzing(false);
+    }, 850);
+  };
+
+  const applyAiSuggestions = () => {
+    if (!aiSuggestion) return;
+    setFormData(prev => ({
+      ...prev,
+      category: aiSuggestion.category,
+      severity: aiSuggestion.severity,
+      title: aiSuggestion.title,
+    }));
+    setAiSuggestion(null);
+    toast({
+      title: t('ai_applied'),
+      description: 'Category, Severity, and Title recommendations updated.',
+    });
   };
 
   const getLocation = () => {
@@ -160,6 +218,15 @@ export default function ReportNow() {
       };
       reader.readAsDataURL(file);
     });
+
+    if (newFiles.length > 0) {
+      setIsAiAnalyzing(true);
+      setTimeout(() => {
+        const suggestions = classifyCivicIssue(formData.description || newFiles[0].name, newFiles[0].name);
+        setAiSuggestion(suggestions);
+        setIsAiAnalyzing(false);
+      }, 1000);
+    }
   };
 
   const removeImage = (index: number) => {
@@ -227,6 +294,8 @@ export default function ReportNow() {
         title: 'Report submitted!',
         description: `Your report ID is ${data.report_number}`,
       });
+      // Refresh local copy of reports
+      fetchAllReports();
     } catch (error) {
       toast({
         title: 'Submission failed',
@@ -384,9 +453,65 @@ export default function ReportNow() {
                     rows={4}
                     value={formData.description}
                     onChange={handleChange}
+                    onBlur={(e) => triggerAiAnalysis(e.target.value)}
                     maxLength={1000}
                   />
                 </div>
+
+                {/* CivicAI Assistant Suggestions Panel */}
+                {isAiAnalyzing && (
+                  <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 animate-pulse flex items-center gap-3">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    <p className="text-sm font-medium text-primary">{t('ai_thinking')}</p>
+                  </div>
+                )}
+
+                {aiSuggestion && (
+                  <div className="bg-gradient-to-r from-primary/5 to-accent/5 border border-primary/20 rounded-xl p-5 space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-accent animate-bounce" />
+                        <h4 className="font-display font-semibold text-foreground">{t('ai_title')}</h4>
+                      </div>
+                      <Badge variant="secondary" className="bg-accent/10 text-accent-foreground border-accent/20">
+                        Smart Recommendation
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div className="p-3 bg-card rounded-lg border">
+                        <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">{t('ai_suggested_cat')}</p>
+                        <p className="font-semibold text-foreground capitalize">{t(`cat_${aiSuggestion.category}`)}</p>
+                      </div>
+                      <div className="p-3 bg-card rounded-lg border">
+                        <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">{t('ai_suggested_sev')}</p>
+                        <p className="font-semibold text-foreground capitalize">{t(`sev_${aiSuggestion.severity}`)}</p>
+                      </div>
+                      <div className="p-3 bg-card rounded-lg border md:col-span-2">
+                        <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Suggested Title</p>
+                        <p className="font-semibold text-foreground">{aiSuggestion.title}</p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => setAiSuggestion(null)}
+                      >
+                        Ignore
+                      </Button>
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        onClick={applyAiSuggestions}
+                        className="bg-secondary hover:bg-secondary/90 text-secondary-foreground gap-1.5"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        {t('ai_apply')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Location */}
                 <div className="space-y-4">
@@ -462,6 +587,36 @@ export default function ReportNow() {
                     </div>
                   </div>
                 </div>
+
+                {/* Duplicate Report Alert */}
+                {duplicateReport && (
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex gap-3 items-start animate-fade-in">
+                    <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+                    <div className="space-y-3 flex-1">
+                      <div>
+                        <h4 className="font-semibold text-destructive">{t('ai_dup_detected')}</h4>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {t('ai_dup_desc')}
+                        </p>
+                      </div>
+                      <div className="bg-card rounded-lg border p-3 text-sm">
+                        <p className="font-medium truncate">{duplicateReport.title}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          ID: {duplicateReport.report_number} • Status: {t(`status_${duplicateReport.status}`) || duplicateReport.status}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/track?id=${duplicateReport.report_number}`)}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                      >
+                        {t('ai_dup_link')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Image Upload */}
                 <div className="space-y-4">
