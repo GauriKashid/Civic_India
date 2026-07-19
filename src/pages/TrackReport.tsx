@@ -102,9 +102,8 @@ export default function TrackReport() {
     }
   }, [user]);
 
-  const searchReport = useCallback(async (id?: string) => {
-    const reportId = id || searchId.trim();
-    if (!reportId) {
+  const searchReport = useCallback(async (reportId: string) => {
+    if (!reportId || !reportId.trim()) {
       toast({
         title: 'Enter Report ID',
         description: 'Please enter a valid report ID to search.',
@@ -142,7 +141,7 @@ export default function TrackReport() {
     } finally {
       setLoading(false);
     }
-  }, [searchId, toast]);
+  }, [toast]);
 
   const getStatusIndex = (status: ReportStatus) => {
     return statusOrder.indexOf(status);
@@ -183,10 +182,10 @@ export default function TrackReport() {
                     className="pl-10"
                     value={searchId}
                     onChange={(e) => setSearchId(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && searchReport()}
+                    onKeyDown={(e) => e.key === 'Enter' && searchReport(searchId)}
                   />
                 </div>
-                <Button onClick={() => searchReport()} disabled={loading} className="bg-secondary hover:bg-secondary/90">
+                <Button onClick={() => searchReport(searchId)} disabled={loading} className="bg-secondary hover:bg-secondary/90">
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('btn_search')}
                 </Button>
               </div>
