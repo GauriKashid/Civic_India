@@ -74,20 +74,6 @@ export default function TrackReport() {
   const [loading, setLoading] = useState(false);
   const [loadingUserReports, setLoadingUserReports] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchUserReports();
-    }
-  }, [user, fetchUserReports]);
-
-  useEffect(() => {
-    const id = searchParams.get('id');
-    if (id) {
-      setSearchId(id);
-      searchReport(id);
-    }
-  }, [searchParams, searchReport]);
-
   const fetchUserReports = useCallback(async () => {
     if (!user) return;
     setLoadingUserReports(true);
@@ -147,6 +133,20 @@ export default function TrackReport() {
       setLoading(false);
     }
   }, [toast]);
+
+  useEffect(() => {
+    if (user) {
+      fetchUserReports();
+    }
+  }, [user, fetchUserReports]);
+
+  useEffect(() => {
+    const id = searchParams.get('id');
+    if (id) {
+      setSearchId(id);
+      searchReport(id);
+    }
+  }, [searchParams, searchReport]);
 
   const getStatusIndex = (status: ReportStatus) => {
     return statusOrder.indexOf(status);
