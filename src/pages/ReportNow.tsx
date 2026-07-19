@@ -162,46 +162,69 @@ export default function ReportNow() {
     }
 
     setGettingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        setFormData(prev => ({ ...prev, latitude, longitude }));
-        
-        // Try reverse geocoding
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-          );
-          const data = await response.json();
-          if (data.address) {
-            setFormData(prev => ({
-              ...prev,
-              address: data.display_name || '',
-              city: data.address.city || data.address.town || data.address.village || '',
-              state: data.address.state || '',
-              pincode: data.address.postcode || '',
-            }));
-          }
-        } catch (error) {
-          console.error('Reverse geocoding failed:', error);
+
+    const geoOptions = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    };
+
+    const successCallback = async (position: GeolocationPosition) => {
+      const { latitude, longitude, accuracy } = position.coords;
+      setFormData(prev => ({ ...prev, latitude, longitude }));
+      
+      // Try reverse geocoding
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+        );
+        const data = await response.json();
+        if (data.address) {
+          setFormData(prev => ({
+            ...prev,
+            address: data.display_name || '',
+            city: data.address.city || data.address.town || data.address.village || '',
+            state: data.address.state || '',
+            pincode: data.address.postcode || '',
+          }));
         }
-        
-        setGettingLocation(false);
-        toast({
-          title: 'Location detected',
-          description: 'Your location has been added to the report.',
-        });
-      },
-      (error) => {
+      } catch (error) {
+        console.error('Reverse geocoding failed:', error);
+      }
+      
+      setGettingLocation(false);
+      toast({
+        title: 'Location detected',
+        description: `Your live location has been added (accuracy: ${Math.round(accuracy)} meters).`,
+      });
+    };
+
+    const errorCallback = (error: GeolocationPositionError) => {
+      if (error.code === error.TIMEOUT) {
+        console.warn('High accuracy geolocation timed out. Retrying with low accuracy...');
+        navigator.geolocation.getCurrentPosition(
+          successCallback,
+          (fallbackErr) => {
+            setGettingLocation(false);
+            toast({
+              title: 'Location error',
+              description: fallbackErr.message || 'Unable to get location.',
+              variant: 'destructive',
+            });
+          },
+          { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
+        );
+      } else {
         setGettingLocation(false);
         toast({
           title: 'Location error',
-          description: 'Unable to get your location. Please enter manually.',
+          description: error.message || 'Unable to get your location. Please enter manually.',
           variant: 'destructive',
         });
-      },
-      { enableHighAccuracy: true }
-    );
+      }
+    };
+
+    navigator.geolocation.getCurrentPosition(successCallback, errorCallback, geoOptions);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

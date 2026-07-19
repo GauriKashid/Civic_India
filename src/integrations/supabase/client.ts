@@ -477,10 +477,30 @@ class MockAuth {
 const mockStorage = {
   from: (bucketName: string) => ({
     upload: async (fileName: string, file: File) => {
-      return { data: { path: fileName }, error: null };
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64data = reader.result as string;
+          const key = `mock_storage_${fileName}`;
+          try {
+            localStorage.setItem(key, base64data);
+          } catch (e) {
+            console.warn('LocalStorage quota exceeded, using sessionStorage fallback');
+            try {
+              sessionStorage.setItem(key, base64data);
+            } catch (se) {
+              console.warn('SessionStorage failed:', se);
+            }
+          }
+          resolve({ data: { path: fileName }, error: null });
+        };
+        reader.readAsDataURL(file);
+      });
     },
     getPublicUrl: (fileName: string) => {
-      return { data: { publicUrl: `https://picsum.photos/600/400?random=${Math.floor(Math.random() * 1000)}` } };
+      const key = `mock_storage_${fileName}`;
+      const stored = localStorage.getItem(key) || sessionStorage.getItem(key);
+      return { data: { publicUrl: stored || `https://picsum.photos/600/400?random=${Math.floor(Math.random() * 1000)}` } };
     }
   })
 };
