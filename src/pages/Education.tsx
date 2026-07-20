@@ -268,14 +268,33 @@ export default function Education() {
 
       setQuizzes(augmentedQuizzes);
 
-      // Fetch user progress if logged in
+      // Fetch user progress if logged in or guest
+      const userOrGuestId = user ? user.id : 'guest';
+      let dbProgress: UserProgress[] = [];
       if (user) {
-        const { data: progressData } = await supabase
-          .from('user_quiz_progress')
-          .select('quiz_id, is_correct')
-          .eq('user_id', user.id);
-        setUserProgress(progressData || []);
+        try {
+          const { data: progressData } = await supabase
+            .from('user_quiz_progress')
+            .select('quiz_id, is_correct')
+            .eq('user_id', user.id);
+          dbProgress = progressData || [];
+        } catch (e) {
+          console.warn('Error fetching DB progress:', e);
+        }
       }
+
+      const localKey = `local_user_quiz_progress_${userOrGuestId}`;
+      const localProgressStr = localStorage.getItem(localKey);
+      const localProgress: UserProgress[] = localProgressStr ? JSON.parse(localProgressStr) : [];
+
+      const combinedProgress = [...dbProgress];
+      localProgress.forEach((lp) => {
+        if (!combinedProgress.some(p => p.quiz_id === lp.quiz_id)) {
+          combinedProgress.push(lp);
+        }
+      });
+
+      setUserProgress(combinedProgress);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -319,11 +338,27 @@ export default function Education() {
     const currentQuiz = getCategoryQuizzes(selectedCategory!)[currentQuizIndex];
     const isCorrect = answerIndex === currentQuiz.correct_answer;
 
-    if (user) {
-      // Check if already answered
-      const alreadyAnswered = userProgress.some(p => p.quiz_id === currentQuiz.id);
-      
-      if (!alreadyAnswered) {
+    const userOrGuestId = user ? user.id : 'guest';
+    const alreadyAnswered = userProgress.some(p => p.quiz_id === currentQuiz.id);
+    
+    if (!alreadyAnswered) {
+      const newProgressItem: UserProgress = { quiz_id: currentQuiz.id, is_correct: isCorrect };
+
+      // 1. Save to localStorage for instant local persistence
+      const localKey = `local_user_quiz_progress_${userOrGuestId}`;
+      try {
+        const localProgressStr = localStorage.getItem(localKey);
+        const localProgress: UserProgress[] = localProgressStr ? JSON.parse(localProgressStr) : [];
+        if (!localProgress.some(p => p.quiz_id === currentQuiz.id)) {
+          localProgress.push(newProgressItem);
+          localStorage.setItem(localKey, JSON.stringify(localProgress));
+        }
+      } catch (storageErr) {
+        console.warn('LocalStorage write failed:', storageErr);
+      }
+
+      // 2. Save to Supabase if authenticated and is a database quiz
+      if (user) {
         try {
           if (!currentQuiz.id.startsWith('fallback-')) {
             await supabase
@@ -337,9 +372,9 @@ export default function Education() {
         } catch (dbErr) {
           console.warn('Bypassed DB write for fallback quiz:', dbErr);
         }
-
-        setUserProgress(prev => [...prev, { quiz_id: currentQuiz.id, is_correct: isCorrect }]);
       }
+
+      setUserProgress(prev => [...prev, newProgressItem]);
     }
 
     if (isCorrect) {
