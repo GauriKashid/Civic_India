@@ -117,17 +117,25 @@ export default function Navbar() {
                   </Link>
                 </DropdownMenuItem>
                 {isAdmin && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/admin" className="flex items-center gap-2">
-                      <LayoutDashboard className="h-4 w-4" />
-                      {t('btn_admin')}
-                    </Link>
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin" className="flex items-center gap-2">
+                        <LayoutDashboard className="h-4 w-4" />
+                        Admin Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/analytics" className="flex items-center gap-2">
+                        <LayoutDashboard className="h-4 w-4" />
+                        Analytics Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={signOut} className="text-destructive">
                   <LogOut className="h-4 w-4 mr-2" />
-                  {t('btn_signout')}
+                  Sign Out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -209,13 +217,22 @@ export default function Navbar() {
                     {t('btn_profile')}
                   </Link>
                   {isAdmin && (
-                    <Link
-                      to="/admin"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="block px-4 py-3 text-sm font-medium rounded-lg hover:bg-muted"
-                    >
-                      {t('btn_admin')}
-                    </Link>
+                    <>
+                      <Link
+                        to="/admin"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block px-4 py-3 text-sm font-medium rounded-lg hover:bg-muted"
+                      >
+                        Admin Dashboard
+                      </Link>
+                      <Link
+                        to="/analytics"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block px-4 py-3 text-sm font-medium rounded-lg hover:bg-muted"
+                      >
+                        Analytics Dashboard
+                      </Link>
+                    </>
                   )}
                   <button
                     onClick={() => {
@@ -224,7 +241,7 @@ export default function Navbar() {
                     }}
                     className="block w-full text-left px-4 py-3 text-sm font-medium rounded-lg text-destructive hover:bg-destructive/10"
                   >
-                    {t('btn_signout')}
+                    Sign Out
                   </button>
                 </>
               ) : (

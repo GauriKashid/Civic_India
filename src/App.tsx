@@ -12,6 +12,7 @@ import TrackReport from "./pages/TrackReport";
 import Education from "./pages/Education";
 import Leaderboard from "./pages/Leaderboard";
 import Admin from "./pages/Admin";
+import Analytics from "./pages/Analytics";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Resources from "./pages/Resources";
@@ -35,6 +36,7 @@ const App = () => (
               <Route path="/education" element={<Education />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/analytics" element={<Analytics />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/resources" element={<Resources />} />

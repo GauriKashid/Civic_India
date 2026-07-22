@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,52 +13,46 @@ import { useToast } from '@/hooks/use-toast';
 import { 
   LayoutDashboard, 
   FileText, 
-  Users, 
   CheckCircle,
   Clock,
   AlertCircle,
   Search,
-  Filter,
   Eye,
   Loader2,
-  TrendingUp,
-  MapPin
+  MapPin,
+  TrendingUp
 } from 'lucide-react';
 
-type ReportStatus = 'submitted' | 'in_review' | 'assigned' | 'in_progress' | 'resolved' | 'rejected';
-
 interface Report {
-  id: string;
-  report_number: string;
+  id: number;
+  complaint_number: string;
   title: string;
   description: string;
   category: string;
   severity: string;
-  status: ReportStatus;
+  status: 'Pending' | 'In Progress' | 'Resolved' | 'Rejected';
   address: string;
   city: string;
   state: string;
   assigned_to: string | null;
   authority_remarks: string | null;
-  image_urls: string[] | null;
+  image_url: string | null;
   created_at: string;
   updated_at: string;
 }
 
 interface Stats {
   total: number;
-  submitted: number;
+  pending: number;
   in_progress: number;
   resolved: number;
 }
 
-const statusOptions: { value: ReportStatus; label: string }[] = [
-  { value: 'submitted', label: 'Submitted' },
-  { value: 'in_review', label: 'In Review' },
-  { value: 'assigned', label: 'Assigned' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'resolved', label: 'Resolved' },
-  { value: 'rejected', label: 'Rejected' },
+const statusOptions = [
+  { value: 'Pending', label: 'Pending' },
+  { value: 'In Progress', label: 'In Progress' },
+  { value: 'Resolved', label: 'Resolved' },
+  { value: 'Rejected', label: 'Rejected' },
 ];
 
 const categoryOptions = [
@@ -81,14 +73,46 @@ export default function Admin() {
   const { toast } = useToast();
 
   const [reports, setReports] = useState<Report[]>([]);
-  const [stats, setStats] = useState<Stats>({ total: 0, submitted: 0, in_progress: 0, resolved: 0 });
+  const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, in_progress: 0, resolved: 0 });
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [updateData, setUpdateData] = useState({ status: '', assigned_to: '', remarks: '' });
   const [updating, setUpdating] = useState(false);
+
+  const fetchReports = useCallback(async () => {
+    const token = localStorage.getItem('civic_auth_token');
+    if (!token) return;
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/complaints', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setReports(data || []);
+        
+        // Calculate stats
+        const allReports = data || [];
+        setStats({
+          total: allReports.length,
+          pending: allReports.filter((r: Report) => r.status === 'Pending').length,
+          in_progress: allReports.filter((r: Report) => r.status === 'In Progress').length,
+          resolved: allReports.filter((r: Report) => r.status === 'Resolved').length,
+        });
+      } else {
+        throw new Error('Failed to fetch reports');
+      }
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdmin)) {
@@ -107,54 +131,31 @@ export default function Admin() {
     }
   }, [isAdmin, fetchReports]);
 
-  const fetchReports = useCallback(async () => {
-    setLoading(true);
-    try {
-      let query = supabase.from('reports').select('*').order('created_at', { ascending: false });
-
-      if (categoryFilter !== 'all') {
-        query = query.eq('category', categoryFilter as Database["public"]["Enums"]["report_category"]);
-      }
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter as Database["public"]["Enums"]["report_status"]);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      setReports(data || []);
-
-      // Calculate stats
-      const allReports = data || [];
-      setStats({
-        total: allReports.length,
-        submitted: allReports.filter(r => r.status === 'submitted').length,
-        in_progress: allReports.filter(r => ['in_review', 'assigned', 'in_progress'].includes(r.status)).length,
-        resolved: allReports.filter(r => r.status === 'resolved').length,
-      });
-    } catch (error) {
-      console.error('Error fetching reports:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [categoryFilter, statusFilter]);
-
   const handleUpdateReport = async () => {
     if (!selectedReport) return;
     
     setUpdating(true);
+    const token = localStorage.getItem('civic_auth_token');
+    if (!token) return;
+
     try {
-      const updates: Database["public"]["Tables"]["reports"]["Update"] = {};
-      if (updateData.status) updates.status = updateData.status as Database["public"]["Enums"]["report_status"];
-      if (updateData.assigned_to) updates.assigned_to = updateData.assigned_to;
-      if (updateData.remarks) updates.authority_remarks = updateData.remarks;
-      if (updateData.status === 'resolved') updates.resolved_at = new Date().toISOString();
+      const response = await fetch(`http://localhost:5000/api/complaints/${selectedReport.complaint_number}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          status: updateData.status,
+          assigned_to: updateData.assigned_to,
+          authority_remarks: updateData.remarks,
+        })
+      });
 
-      const { error } = await supabase
-        .from('reports')
-        .update(updates)
-        .eq('id', selectedReport.id);
-
-      if (error) throw error;
+      if (!response.ok) {
+        const res = await response.json();
+        throw new Error(res.error || 'Failed to update complaint');
+      }
 
       toast({
         title: 'Report updated',
@@ -174,11 +175,21 @@ export default function Admin() {
     }
   };
 
-  const filteredReports = reports.filter(report =>
-    report.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    report.report_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    report.city?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredReports = reports.filter(report => {
+    // Apply search filter
+    const matchesSearch = 
+      report.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      report.complaint_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (report.city && report.city.toLowerCase().includes(searchQuery.toLowerCase()));
+      
+    // Apply category filter
+    const matchesCategory = categoryFilter === 'all' || report.category === categoryFilter;
+    
+    // Apply status filter
+    const matchesStatus = statusFilter === 'all' || report.status === statusFilter;
+
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-IN', {
@@ -188,16 +199,14 @@ export default function Admin() {
     });
   };
 
-  const getStatusBadge = (status: ReportStatus) => {
-    const colors: Record<ReportStatus, string> = {
-      submitted: 'bg-blue-100 text-blue-800',
-      in_review: 'bg-yellow-100 text-yellow-800',
-      assigned: 'bg-purple-100 text-purple-800',
-      in_progress: 'bg-orange-100 text-orange-800',
-      resolved: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800',
+  const getStatusBadge = (status: string) => {
+    const colors: Record<string, string> = {
+      Pending: 'bg-blue-100 text-blue-800 border-blue-200',
+      'In Progress': 'bg-orange-100 text-orange-800 border-orange-200',
+      Resolved: 'bg-green-100 text-green-800 border-green-200',
+      Rejected: 'bg-red-100 text-red-800 border-red-200',
     };
-    return <Badge className={colors[status]}>{status.replace('_', ' ')}</Badge>;
+    return <Badge className={`${colors[status] || 'bg-muted text-muted-foreground'} px-2 py-0.5 border`}>{status}</Badge>;
   };
 
   if (authLoading) {
@@ -219,19 +228,23 @@ export default function Admin() {
       <div className="py-8">
         <div className="container mx-auto px-4">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
             <div>
               <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
                 <LayoutDashboard className="h-8 w-8 text-primary" />
                 Admin Dashboard
               </h1>
-              <p className="text-muted-foreground mt-1">Manage civic issue reports</p>
+              <p className="text-muted-foreground mt-1">Manage local citizen complaints in MySQL database</p>
             </div>
+            <Button onClick={() => navigate('/analytics')} className="bg-primary hover:bg-primary/90 text-white gap-2 flex items-center">
+              <TrendingUp className="h-4 w-4" />
+              View Analytics Dashboard
+            </Button>
           </div>
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <Card>
+            <Card className="border shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -244,20 +257,20 @@ export default function Admin() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="border shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
                     <Clock className="h-6 w-6 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-display font-bold">{stats.submitted}</p>
-                    <p className="text-sm text-muted-foreground">New</p>
+                    <p className="text-2xl font-display font-bold">{stats.pending}</p>
+                    <p className="text-sm text-muted-foreground">Pending</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="border shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-lg bg-orange-100 flex items-center justify-center">
@@ -270,7 +283,7 @@ export default function Admin() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="border shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
@@ -286,7 +299,7 @@ export default function Admin() {
           </div>
 
           {/* Filters */}
-          <Card className="mb-6">
+          <Card className="mb-6 border shadow-sm">
             <CardContent className="pt-6">
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="relative flex-1">
@@ -324,10 +337,10 @@ export default function Admin() {
           </Card>
 
           {/* Reports Table */}
-          <Card>
+          <Card className="border shadow-sm">
             <CardHeader>
               <CardTitle>Reports ({filteredReports.length})</CardTitle>
-              <CardDescription>Click on a report to view details and update status</CardDescription>
+              <CardDescription>Click on a report eye icon to review details and update status</CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -340,26 +353,26 @@ export default function Admin() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="w-full text-left">
                     <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-3 px-4 font-medium">Report ID</th>
-                        <th className="text-left py-3 px-4 font-medium">Title</th>
-                        <th className="text-left py-3 px-4 font-medium">Category</th>
-                        <th className="text-left py-3 px-4 font-medium">Location</th>
-                        <th className="text-left py-3 px-4 font-medium">Status</th>
-                        <th className="text-left py-3 px-4 font-medium">Date</th>
-                        <th className="text-left py-3 px-4 font-medium">Action</th>
+                      <tr className="border-b bg-muted/40">
+                        <th className="py-3 px-4 font-semibold text-sm">Complaint ID</th>
+                        <th className="py-3 px-4 font-semibold text-sm">Title</th>
+                        <th className="py-3 px-4 font-semibold text-sm">Category</th>
+                        <th className="py-3 px-4 font-semibold text-sm">Location</th>
+                        <th className="py-3 px-4 font-semibold text-sm">Status</th>
+                        <th className="py-3 px-4 font-semibold text-sm">Date</th>
+                        <th className="py-3 px-4 font-semibold text-sm">Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredReports.map((report) => (
                         <tr key={report.id} className="border-b hover:bg-muted/50 transition-colors">
-                          <td className="py-3 px-4 font-mono text-sm">{report.report_number}</td>
+                          <td className="py-3 px-4 font-mono text-sm text-primary font-semibold">{report.complaint_number}</td>
                           <td className="py-3 px-4">
-                            <p className="font-medium truncate max-w-xs">{report.title}</p>
+                            <p className="font-semibold truncate max-w-xs">{report.title}</p>
                           </td>
-                          <td className="py-3 px-4 capitalize">{report.category.replace('_', ' ')}</td>
+                          <td className="py-3 px-4 capitalize">{report.category}</td>
                           <td className="py-3 px-4 text-sm text-muted-foreground">
                             {report.city || 'N/A'}
                           </td>
@@ -377,6 +390,7 @@ export default function Admin() {
                                   remarks: report.authority_remarks || '',
                                 });
                               }}
+                              className="text-primary hover:bg-primary/10"
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
@@ -396,63 +410,61 @@ export default function Admin() {
               {selectedReport && (
                 <>
                   <DialogHeader>
-                    <DialogTitle>{selectedReport.title}</DialogTitle>
-                    <DialogDescription>{selectedReport.report_number}</DialogDescription>
+                    <DialogTitle className="text-xl font-bold">{selectedReport.title}</DialogTitle>
+                    <DialogDescription className="font-mono text-sm font-semibold text-primary">{selectedReport.complaint_number}</DialogDescription>
                   </DialogHeader>
 
                   <div className="space-y-6">
                     {/* Report Info */}
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-2 gap-4 text-sm border bg-muted/20 p-4 rounded-lg">
                       <div>
-                        <p className="text-muted-foreground">Category</p>
-                        <p className="font-medium capitalize">{selectedReport.category.replace('_', ' ')}</p>
+                        <p className="text-muted-foreground text-xs uppercase">Category</p>
+                        <p className="font-semibold capitalize text-foreground">{selectedReport.category}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Severity</p>
-                        <p className="font-medium capitalize">{selectedReport.severity}</p>
+                        <p className="text-muted-foreground text-xs uppercase">Severity</p>
+                        <p className="font-semibold capitalize text-foreground">{selectedReport.severity}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Current Status</p>
-                        {getStatusBadge(selectedReport.status)}
+                        <p className="text-muted-foreground text-xs uppercase">Current Status</p>
+                        <p className="mt-1">{getStatusBadge(selectedReport.status)}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Submitted</p>
-                        <p className="font-medium">{formatDate(selectedReport.created_at)}</p>
+                        <p className="text-muted-foreground text-xs uppercase">Submitted</p>
+                        <p className="font-semibold text-foreground">{formatDate(selectedReport.created_at)}</p>
                       </div>
                     </div>
 
                     <div>
-                      <p className="text-muted-foreground text-sm mb-1">Description</p>
-                      <p>{selectedReport.description}</p>
+                      <p className="text-muted-foreground text-xs uppercase mb-1">Description</p>
+                      <p className="text-foreground leading-relaxed whitespace-pre-wrap">{selectedReport.description}</p>
                     </div>
 
                     <div>
-                      <p className="text-muted-foreground text-sm mb-1">Location</p>
-                      <p className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
+                      <p className="text-muted-foreground text-xs uppercase mb-1">Location Details</p>
+                      <p className="flex items-center gap-2 font-medium text-foreground">
+                        <MapPin className="h-4 w-4 text-primary" />
                         {[selectedReport.address, selectedReport.city, selectedReport.state].filter(Boolean).join(', ') || 'Not specified'}
                       </p>
                     </div>
 
-                    {selectedReport.image_urls && selectedReport.image_urls.length > 0 && (
+                    {selectedReport.image_url && (
                       <div>
-                        <p className="text-muted-foreground text-sm mb-2">Photos</p>
-                        <div className="grid grid-cols-3 gap-2">
-                          {selectedReport.image_urls.map((url, i) => (
-                            <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                              <img src={url} alt="" className="rounded-lg w-full aspect-square object-cover" />
-                            </a>
-                          ))}
+                        <p className="text-muted-foreground text-xs uppercase mb-2">Complaint Image</p>
+                        <div className="max-w-md rounded-lg overflow-hidden border">
+                          <a href={selectedReport.image_url} target="_blank" rel="noopener noreferrer">
+                            <img src={selectedReport.image_url} alt="Evidence" className="w-full aspect-video object-cover hover:opacity-90 transition-opacity" />
+                          </a>
                         </div>
                       </div>
                     )}
 
                     {/* Update Form */}
                     <div className="border-t pt-6 space-y-4">
-                      <h4 className="font-semibold">Update Report</h4>
+                      <h4 className="font-bold text-base text-foreground">Resolve / Assign Complaint</h4>
                       
                       <div className="space-y-2">
-                        <label className="text-sm">Status</label>
+                        <Label>Update Status</Label>
                         <Select value={updateData.status} onValueChange={(v) => setUpdateData(d => ({ ...d, status: v }))}>
                           <SelectTrigger>
                             <SelectValue />
@@ -466,32 +478,32 @@ export default function Admin() {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm">Assigned To</label>
+                        <Label>Assign to Officer</Label>
                         <Input
-                          placeholder="Department or officer name"
+                          placeholder="Officer name or department (e.g. Inspector Ramesh)"
                           value={updateData.assigned_to}
                           onChange={(e) => setUpdateData(d => ({ ...d, assigned_to: e.target.value }))}
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm">Remarks</label>
+                        <Label>Authority Remarks</Label>
                         <Textarea
-                          placeholder="Add remarks or notes about this report"
+                          placeholder="Action details, updates, or comments for the citizen to view..."
                           value={updateData.remarks}
                           onChange={(e) => setUpdateData(d => ({ ...d, remarks: e.target.value }))}
                         />
                       </div>
 
-                      <div className="flex justify-end gap-3">
+                      <div className="flex justify-end gap-3 pt-2">
                         <Button variant="outline" onClick={() => setSelectedReport(null)}>Cancel</Button>
                         <Button 
                           onClick={handleUpdateReport} 
                           disabled={updating}
-                          className="bg-secondary hover:bg-secondary/90"
+                          className="bg-secondary hover:bg-secondary/90 text-white font-semibold"
                         >
                           {updating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                          Update Report
+                          Save Changes
                         </Button>
                       </div>
                     </div>

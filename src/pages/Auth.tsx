@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Shield } from 'lucide-react';
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -30,6 +30,7 @@ export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(searchParams.get('mode') === 'signup');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState<'citizen' | 'admin'>('citizen');
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -44,7 +45,11 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate('/');
+      if (user.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     }
   }, [user, navigate]);
 
@@ -76,7 +81,7 @@ export default function Auth() {
           return;
         }
 
-        const { error } = await signUp(formData.email, formData.password, formData.fullName);
+        const { error } = await signUp(formData.email, formData.password, formData.fullName, role);
         if (error) {
           if (error.message.includes('already registered')) {
             toast({
@@ -94,9 +99,9 @@ export default function Auth() {
         } else {
           toast({
             title: 'Account created!',
-            description: 'Welcome to CivicIndia. You are now signed in.',
+            description: `Welcome to CivicIndia. You are registered as a ${role === 'admin' ? 'Municipal Authority' : 'Citizen'}.`,
           });
-          navigate('/');
+          navigate(role === 'admin' ? '/admin' : '/');
         }
       } else {
         const result = loginSchema.safeParse(formData);
@@ -124,7 +129,6 @@ export default function Auth() {
             title: 'Welcome back!',
             description: 'You have successfully signed in.',
           });
-          navigate('/');
         }
       }
     } catch {
@@ -169,6 +173,34 @@ export default function Auth() {
             </CardHeader>
 
             <CardContent>
+              {/* Role selector tab-group */}
+              <div className="flex gap-2 p-1 bg-muted rounded-lg mb-6 border">
+                <button
+                  type="button"
+                  onClick={() => setRole('citizen')}
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${
+                    role === 'citizen'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <User className="h-4 w-4" />
+                  Citizen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole('admin')}
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${
+                    role === 'admin'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Shield className="h-4 w-4" />
+                  Authority
+                </button>
+              </div>
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 {isSignUp && (
                   <div className="space-y-2">

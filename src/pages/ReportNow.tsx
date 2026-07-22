@@ -3,8 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
-import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,7 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { classifyCivicIssue, findDuplicateReport, CivicAiSuggestion, DuplicateReport } from '@/lib/civicAi';
 import { 
   MapPin, 
   Upload, 
@@ -69,23 +66,34 @@ export default function ReportNow() {
     latitude: null as number | null,
     longitude: null as number | null,
   });
+  
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [reportNumber, setReportNumber] = useState('');
 
-  // CivicAI state
+  // CivicAI prediction states
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
-  const [aiSuggestion, setAiSuggestion] = useState<CivicAiSuggestion | null>(null);
-  const [allReports, setAllReports] = useState<Array<{ id: string; report_number: string; title: string; status: string; category: string; city?: string; created_at: string }>>([]);
-  const [duplicateReport, setDuplicateReport] = useState<DuplicateReport | null>(null);
+  const [aiSuggestion, setAiSuggestion] = useState<{ category: string; confidence: number } | null>(null);
+  const [allReports, setAllReports] = useState<Array<{ id: number; complaint_number: string; title: string; status: string; category: string; city?: string; created_at: string }>>([]);
+  const [duplicateReport, setDuplicateReport] = useState<any | null>(null);
 
   const fetchAllReports = async () => {
+    const token = localStorage.getItem('civic_auth_token');
+    if (!token) return;
     try {
-      const { data } = await supabase.from('reports').select('*');
-      setAllReports(data || []);
+      const response = await fetch('http://localhost:5000/api/complaints', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAllReports(data || []);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -106,11 +114,17 @@ export default function ReportNow() {
     }
   }, [user, authLoading, navigate, toast]);
 
-  // AI duplicate check when city or category changes
+  // Simple duplicate check when city and category match
   useEffect(() => {
-    if (formData.city && formData.category) {
-      const dup = findDuplicateReport(formData.city, formData.category, allReports);
-      setDuplicateReport(dup);
+    if (formData.city && formData.category && allReports.length > 0) {
+      const cleanCity = formData.city.trim().toLowerCase();
+      const dup = allReports.find(r => 
+        r.status !== 'Resolved' && 
+        r.status !== 'Rejected' && 
+        r.category === formData.category && 
+        r.city?.trim().toLowerCase() === cleanCity
+      );
+      setDuplicateReport(dup || null);
     } else {
       setDuplicateReport(null);
     }
@@ -125,29 +139,17 @@ export default function ReportNow() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const triggerAiAnalysis = (desc: string) => {
-    if (desc.trim().length < 15) return;
-    setIsAiAnalyzing(true);
-    setAiSuggestion(null);
-    setTimeout(() => {
-      const suggestions = classifyCivicIssue(desc);
-      setAiSuggestion(suggestions);
-      setIsAiAnalyzing(false);
-    }, 850);
-  };
-
   const applyAiSuggestions = () => {
     if (!aiSuggestion) return;
     setFormData(prev => ({
       ...prev,
       category: aiSuggestion.category,
-      severity: aiSuggestion.severity,
-      title: aiSuggestion.title,
+      title: `AI predicted ${aiSuggestion.category} at ${formData.city || 'location'}`.substring(0, 80),
     }));
     setAiSuggestion(null);
     toast({
       title: t('ai_applied'),
-      description: 'Category, Severity, and Title recommendations updated.',
+      description: 'Category recommendation applied.',
     });
   };
 
@@ -173,7 +175,6 @@ export default function ReportNow() {
       const { latitude, longitude, accuracy } = position.coords;
       setFormData(prev => ({ ...prev, latitude, longitude }));
       
-      // Try reverse geocoding
       try {
         const response = await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
@@ -200,61 +201,80 @@ export default function ReportNow() {
     };
 
     const errorCallback = (error: GeolocationPositionError) => {
-      if (error.code === error.TIMEOUT) {
-        console.warn('High accuracy geolocation timed out. Retrying with low accuracy...');
-        navigator.geolocation.getCurrentPosition(
-          successCallback,
-          (fallbackErr) => {
-            setGettingLocation(false);
-            toast({
-              title: 'Location error',
-              description: fallbackErr.message || 'Unable to get location.',
-              variant: 'destructive',
-            });
-          },
-          { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
-        );
-      } else {
-        setGettingLocation(false);
-        toast({
-          title: 'Location error',
-          description: error.message || 'Unable to get your location. Please enter manually.',
-          variant: 'destructive',
-        });
-      }
+      setGettingLocation(false);
+      toast({
+        title: 'Location error',
+        description: error.message || 'Unable to get location. Please enter manually.',
+        variant: 'destructive',
+      });
     };
 
     navigator.geolocation.getCurrentPosition(successCallback, errorCallback, geoOptions);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
+    if (!files || files.length === 0) return;
 
-    const newFiles = Array.from(files).slice(0, 5 - images.length);
-    setImages(prev => [...prev, ...newFiles]);
+    const file = files[0];
+    setImages([file]); // Single image upload for CNN simplicity
 
-    newFiles.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setImagePreviewUrls(prev => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImagePreviewUrls([reader.result as string]);
+    };
+    reader.readAsDataURL(file);
 
-    if (newFiles.length > 0) {
-      setIsAiAnalyzing(true);
-      setTimeout(() => {
-        const suggestions = classifyCivicIssue(formData.description || newFiles[0].name, newFiles[0].name);
-        setAiSuggestion(suggestions);
-        setIsAiAnalyzing(false);
-      }, 1000);
+    // Call Python CNN endpoint immediately
+    const token = localStorage.getItem('civic_auth_token');
+    if (!token) return;
+
+    setIsAiAnalyzing(true);
+    setAiSuggestion(null);
+
+    try {
+      const uploadData = new FormData();
+      uploadData.append('image', file);
+
+      const response = await fetch('http://localhost:5000/api/predict', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: uploadData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUploadedImageUrl(data.image_url);
+        setAiSuggestion({
+          category: data.category,
+          confidence: data.confidence
+        });
+        toast({
+          title: 'CNN Prediction Complete',
+          description: `Identified issue category: ${data.category} (${Math.round(data.confidence * 100)}%)`,
+        });
+      } else {
+        throw new Error('Prediction API failed');
+      }
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: 'Prediction Error',
+        description: 'Failed to run CNN prediction. Please choose the category manually.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsAiAnalyzing(false);
     }
   };
 
-  const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
-    setImagePreviewUrls(prev => prev.filter((_, i) => i !== index));
+  const removeImage = () => {
+    setImages([]);
+    setImagePreviewUrls([]);
+    setUploadedImageUrl('');
+    setAiSuggestion(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -272,52 +292,44 @@ export default function ReportNow() {
     setLoading(true);
 
     try {
-      // Upload images first
-      const imageUrls: string[] = [];
-      for (const image of images) {
-        const fileName = `${user!.id}/${Date.now()}-${image.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from('report-images')
-          .upload(fileName, image);
+      const token = localStorage.getItem('civic_auth_token');
+      if (!token) throw new Error('Auth token not found. Please log in.');
 
-        if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('report-images')
-            .getPublicUrl(fileName);
-          imageUrls.push(publicUrl);
-        }
-      }
-
-      // Create report (report_number is auto-generated by database trigger)
-      const { data, error } = await supabase
-        .from('reports')
-        .insert([{
-          user_id: user!.id,
-          report_number: 'TEMP', // Will be overwritten by database trigger
-          category: formData.category as Database['public']['Enums']['report_category'],
-          severity: formData.severity as Database['public']['Enums']['report_severity'],
+      const response = await fetch('http://localhost:5000/api/complaints', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          category: formData.category,
+          severity: formData.severity,
           title: formData.title,
           description: formData.description,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
           address: formData.address,
           city: formData.city,
           state: formData.state,
           pincode: formData.pincode,
-          latitude: formData.latitude,
-          longitude: formData.longitude,
-          image_urls: imageUrls,
-        }])
-        .select('report_number')
-        .single();
+          image_url: uploadedImageUrl,
+          ai_predicted_category: aiSuggestion?.category || null,
+          ai_confidence: aiSuggestion?.confidence || 0.0
+        })
+      });
 
-      if (error) throw error;
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to submit complaint');
+      }
 
-      setReportNumber(data.report_number);
+      setReportNumber(result.complaint_number);
       setSubmitted(true);
       toast({
         title: 'Report submitted!',
-        description: `Your report ID is ${data.report_number}`,
+        description: `Your report ID is ${result.complaint_number}`,
       });
-      // Refresh local copy of reports
+      
       fetchAllReports();
     } catch (error) {
       toast({
@@ -344,24 +356,24 @@ export default function ReportNow() {
     return (
       <Layout>
         <div className="min-h-[60vh] flex items-center justify-center py-12 px-4">
-          <Card className="max-w-md w-full text-center">
+          <Card className="max-w-md w-full text-center border shadow-lg">
             <CardContent className="pt-8">
-              <div className="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="h-10 w-10 text-accent" />
+              <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="h-10 w-10 text-green-600" />
               </div>
               <h2 className="font-display text-2xl font-bold text-foreground mb-2">
-                {t('report_success')}
+                Report Submitted!
               </h2>
               <p className="text-muted-foreground mb-6">
-                Your civic issue has been reported. Track its progress using the ID below.
+                Your civic complaint has been registered with the municipal authorities.
               </p>
               <div className="bg-muted rounded-lg p-4 mb-6">
-                <p className="text-sm text-muted-foreground">Report ID</p>
+                <p className="text-sm text-muted-foreground">Complaint Tracking ID</p>
                 <p className="font-display text-2xl font-bold text-primary">{reportNumber}</p>
               </div>
               <div className="flex flex-col gap-3">
-                <Button onClick={() => navigate(`/track?id=${reportNumber}`)} className="bg-secondary hover:bg-secondary/90">
-                  {t('nav_track')}
+                <Button onClick={() => navigate(`/track?id=${reportNumber}`)} className="bg-secondary hover:bg-secondary/90 text-white">
+                  Track Complaint
                 </Button>
                 <Button variant="outline" onClick={() => {
                   setSubmitted(false);
@@ -380,6 +392,8 @@ export default function ReportNow() {
                   });
                   setImages([]);
                   setImagePreviewUrls([]);
+                  setUploadedImageUrl('');
+                  setAiSuggestion(null);
                 }}>
                   Submit Another Report
                 </Button>
@@ -398,30 +412,115 @@ export default function ReportNow() {
           {/* Header */}
           <div className="max-w-3xl mx-auto text-center mb-8">
             <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
-              {t('report_title')}
+              Report Civic Issue
             </h1>
             <p className="text-muted-foreground text-lg">
-              {t('report_desc')}
+              Upload a photo, enter details, and our CNN AI model will analyze the category immediately.
             </p>
           </div>
 
           {/* Form */}
-          <Card className="max-w-3xl mx-auto">
+          <Card className="max-w-3xl mx-auto border shadow-md">
             <CardHeader>
-              <CardTitle>{t('track_details')}</CardTitle>
+              <CardTitle>Complaint Form</CardTitle>
               <CardDescription>
                 Provide as much detail as possible to help authorities address the issue quickly.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Photo Upload First to trigger CNN */}
+                <div className="space-y-4 bg-muted/40 p-5 rounded-xl border border-dashed border-muted-foreground/20">
+                  <div className="flex justify-between items-center">
+                    <Label className="text-base font-semibold flex items-center gap-2">
+                      <Camera className="h-5 w-5 text-primary" />
+                      1. Upload Issue Image (Required for AI Prediction)
+                    </Label>
+                    {images.length > 0 && (
+                      <Button type="button" variant="ghost" size="sm" onClick={removeImage} className="text-destructive gap-1">
+                        <Trash2 className="h-4 w-4" /> Remove
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {images.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-8 bg-card rounded-lg border-2 border-dashed">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        id="image-upload"
+                      />
+                      <label htmlFor="image-upload" className="cursor-pointer flex flex-col items-center gap-2 text-center">
+                        <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                          <Upload className="h-7 w-7 text-primary" />
+                        </div>
+                        <p className="text-sm font-semibold">Click to select photo</p>
+                        <p className="text-xs text-muted-foreground">Supported formats: JPG, PNG. Image will be processed by CNN.</p>
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col md:flex-row gap-6 items-center">
+                      <div className="w-full md:w-1/3 aspect-video md:aspect-square rounded-lg overflow-hidden border">
+                        <img src={imagePreviewUrls[0]} alt="Uploaded preview" className="w-full h-full object-cover" />
+                      </div>
+                      
+                      <div className="w-full md:w-2/3 space-y-4">
+                        {isAiAnalyzing && (
+                          <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 animate-pulse flex items-center gap-3">
+                            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                            <p className="text-sm font-medium text-primary">CNN analyzing image textures & colors...</p>
+                          </div>
+                        )}
+
+                        {aiSuggestion && (
+                          <div className="bg-gradient-to-r from-primary/5 to-accent/5 border border-primary/20 rounded-xl p-4 space-y-3 animate-fade-in">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Sparkles className="h-5 w-5 text-accent animate-bounce" />
+                                <h4 className="font-display font-semibold text-foreground">AI Prediction Result</h4>
+                              </div>
+                              <Badge variant="secondary" className="bg-accent/15 text-accent-foreground border-accent/20">
+                                {Math.round(aiSuggestion.confidence * 100)}% Confidence
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              The CNN model predicted the category as <strong className="capitalize text-foreground">{aiSuggestion.category}</strong>.
+                            </p>
+                            <div className="flex gap-2">
+                              <Button 
+                                type="button" 
+                                size="sm" 
+                                onClick={applyAiSuggestions}
+                                className="bg-secondary hover:bg-secondary/90 text-white gap-1.5"
+                              >
+                                <Sparkles className="h-4 w-4" />
+                                Confirm Recommendation
+                              </Button>
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setAiSuggestion(null)}
+                              >
+                                Change Category
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Category & Severity */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="category">{t('field_category')} *</Label>
+                    <Label htmlFor="category">2. Category *</Label>
                     <Select value={formData.category} onValueChange={(v) => handleSelectChange('category', v)}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
+                        <SelectValue placeholder="Select category manually" />
                       </SelectTrigger>
                       <SelectContent>
                         {categories.map((cat) => (
@@ -437,7 +536,7 @@ export default function ReportNow() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="severity">{t('field_severity')}</Label>
+                    <Label htmlFor="severity">Severity Level</Label>
                     <Select value={formData.severity} onValueChange={(v) => handleSelectChange('severity', v)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select severity" />
@@ -455,11 +554,11 @@ export default function ReportNow() {
 
                 {/* Title */}
                 <div className="space-y-2">
-                  <Label htmlFor="title">{t('field_title')} *</Label>
+                  <Label htmlFor="title">3. Complaint Title *</Label>
                   <Input
                     id="title"
                     name="title"
-                    placeholder={t('field_title_placeholder')}
+                    placeholder="Short description of the issue"
                     value={formData.title}
                     onChange={handleChange}
                     maxLength={100}
@@ -468,141 +567,90 @@ export default function ReportNow() {
 
                 {/* Description */}
                 <div className="space-y-2">
-                  <Label htmlFor="description">{t('field_description')} *</Label>
+                  <Label htmlFor="description">4. Detailed Description *</Label>
                   <Textarea
                     id="description"
                     name="description"
-                    placeholder={t('field_description_placeholder')}
+                    placeholder="Describe the complaint details (e.g. size of pothole, duration of issue)"
                     rows={4}
                     value={formData.description}
                     onChange={handleChange}
-                    onBlur={(e) => triggerAiAnalysis(e.target.value)}
                     maxLength={1000}
                   />
                 </div>
 
-                {/* CivicAI Assistant Suggestions Panel */}
-                {isAiAnalyzing && (
-                  <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 animate-pulse flex items-center gap-3">
-                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                    <p className="text-sm font-medium text-primary">{t('ai_thinking')}</p>
-                  </div>
-                )}
-
-                {aiSuggestion && (
-                  <div className="bg-gradient-to-r from-primary/5 to-accent/5 border border-primary/20 rounded-xl p-5 space-y-4 animate-fade-in">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 text-accent animate-bounce" />
-                        <h4 className="font-display font-semibold text-foreground">{t('ai_title')}</h4>
-                      </div>
-                      <Badge variant="secondary" className="bg-accent/10 text-accent-foreground border-accent/20">
-                        Smart Recommendation
-                      </Badge>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div className="p-3 bg-card rounded-lg border">
-                        <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">{t('ai_suggested_cat')}</p>
-                        <p className="font-semibold text-foreground capitalize">{t(`cat_${aiSuggestion.category}`)}</p>
-                      </div>
-                      <div className="p-3 bg-card rounded-lg border">
-                        <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">{t('ai_suggested_sev')}</p>
-                        <p className="font-semibold text-foreground capitalize">{t(`sev_${aiSuggestion.severity}`)}</p>
-                      </div>
-                      <div className="p-3 bg-card rounded-lg border md:col-span-2">
-                        <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Suggested Title</p>
-                        <p className="font-semibold text-foreground">{aiSuggestion.title}</p>
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-2 pt-2">
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => setAiSuggestion(null)}
-                      >
-                        Ignore
-                      </Button>
-                      <Button 
-                        type="button" 
-                        size="sm" 
-                        onClick={applyAiSuggestions}
-                        className="bg-secondary hover:bg-secondary/90 text-secondary-foreground gap-1.5"
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        {t('ai_apply')}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
                 {/* Location */}
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label>Location</Label>
+                  <div className="flex items-center justify-between border-t pt-4">
+                    <Label className="text-base font-semibold">5. Location Pinpointing</Label>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={getLocation}
                       disabled={gettingLocation}
-                      className="gap-2"
+                      className="gap-2 border-primary/30 text-primary hover:bg-primary/5"
                     >
                       {gettingLocation ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <MapPin className="h-4 w-4" />
                       )}
-                      {gettingLocation ? 'Getting location...' : 'Use My Location'}
+                      Detect My GPS Coordinates
                     </Button>
                   </div>
 
                   {formData.latitude && formData.longitude && (
-                    <div className="bg-accent/10 rounded-lg p-3 text-sm">
-                      <p className="text-accent font-medium">📍 Location captured</p>
-                      <p className="text-muted-foreground">
-                        Lat: {formData.latitude.toFixed(6)}, Lng: {formData.longitude.toFixed(6)}
-                      </p>
+                    <div className="bg-accent/5 rounded-lg p-3 text-sm border flex items-center justify-between">
+                      <div>
+                        <p className="text-accent-foreground font-semibold">📍 Coordinates Captured</p>
+                        <p className="text-muted-foreground text-xs">
+                          Latitude: {formData.latitude.toFixed(6)}, Longitude: {formData.longitude.toFixed(6)}
+                        </p>
+                      </div>
+                      <Badge variant="secondary" className="bg-green-100 text-green-800">
+                        GPS Active
+                      </Badge>
                     </div>
                   )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2 space-y-2">
-                      <Label htmlFor="address">{t('field_address')}</Label>
+                      <Label htmlFor="address">Full Address / Landmark</Label>
                       <Input
                         id="address"
                         name="address"
-                        placeholder={t('field_address_placeholder')}
+                        placeholder="House/street details and closest landmark"
                         value={formData.address}
                         onChange={handleChange}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="city">{t('field_city')}</Label>
+                      <Label htmlFor="city">City *</Label>
                       <Input
                         id="city"
                         name="city"
-                        placeholder={t('field_city_placeholder')}
+                        placeholder="Enter City"
                         value={formData.city}
                         onChange={handleChange}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="state">{t('field_state')}</Label>
+                      <Label htmlFor="state">State</Label>
                       <Input
                         id="state"
                         name="state"
-                        placeholder={t('field_state_placeholder')}
+                        placeholder="Enter State"
                         value={formData.state}
                         onChange={handleChange}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="pincode">{t('field_pincode')}</Label>
+                      <Label htmlFor="pincode">Pincode</Label>
                       <Input
                         id="pincode"
                         name="pincode"
-                        placeholder={t('field_pincode_placeholder')}
+                        placeholder="6-digit pincode"
                         value={formData.pincode}
                         onChange={handleChange}
                         maxLength={6}
@@ -615,94 +663,47 @@ export default function ReportNow() {
                 {duplicateReport && (
                   <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex gap-3 items-start animate-fade-in">
                     <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
-                    <div className="space-y-3 flex-1">
+                    <div className="space-y-2 flex-1">
                       <div>
-                        <h4 className="font-semibold text-destructive">{t('ai_dup_detected')}</h4>
+                        <h4 className="font-semibold text-destructive">Similar active issue detected in this city</h4>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {t('ai_dup_desc')}
+                          Another citizen has reported an issue in the same category recently. You can track their report instead.
                         </p>
                       </div>
                       <div className="bg-card rounded-lg border p-3 text-sm">
                         <p className="font-medium truncate">{duplicateReport.title}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          ID: {duplicateReport.report_number} • Status: {t(`status_${duplicateReport.status}`) || duplicateReport.status}
+                          Tracking ID: {duplicateReport.complaint_number} • Status: {duplicateReport.status}
                         </p>
                       </div>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => navigate(`/track?id=${duplicateReport.report_number}`)}
+                        onClick={() => navigate(`/track?id=${duplicateReport.complaint_number}`)}
                         className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
                       >
-                        {t('ai_dup_link')}
+                        Track Existing Report
                       </Button>
                     </div>
                   </div>
                 )}
 
-                {/* Image Upload */}
-                <div className="space-y-4">
-                  <Label>{t('field_photos')}</Label>
-                  <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleImageUpload}
-                      className="hidden"
-                      id="image-upload"
-                      disabled={images.length >= 5}
-                    />
-                    <label
-                      htmlFor="image-upload"
-                      className={`cursor-pointer flex flex-col items-center gap-2 ${images.length >= 5 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                        <Camera className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {t('field_photos_desc')}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {images.length}/5 photos added
-                      </p>
-                    </label>
-                  </div>
-
-                  {imagePreviewUrls.length > 0 && (
-                    <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
-                      {imagePreviewUrls.map((url, index) => (
-                        <div key={index} className="relative aspect-square rounded-lg overflow-hidden group">
-                          <img src={url} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => removeImage(index)}
-                            className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Trash2 className="h-5 w-5 text-white" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
                 {/* Submit */}
                 <Button
                   type="submit"
-                  className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground gap-2"
+                  className="w-full bg-primary hover:bg-primary/90 text-white gap-2 py-6 text-base font-semibold"
                   disabled={loading}
                 >
                   {loading ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {t('btn_submitting')}
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Submitting Complaint...
                     </>
                   ) : (
                     <>
-                      <Upload className="h-4 w-4" />
-                      {t('btn_submit_report')}
+                      <Upload className="h-5 w-5" />
+                      Submit Civic Complaint
                     </>
                   )}
                 </Button>
