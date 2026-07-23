@@ -34,4 +34,9 @@ __pycache__/
 *.pyo
 *.pyd
 
+# SQLite Database
+backend/*.db
+backend/*.db-journal
+
+
 

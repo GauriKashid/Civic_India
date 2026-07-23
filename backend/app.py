@@ -86,7 +86,7 @@ def get_auth_user():
 
 # --- Routes ---
 
-# Server static uploaded files
+# Serve static uploaded files
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
@@ -107,17 +107,17 @@ def register():
     
     try:
         conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor()
         
         # Check if user already exists
-        cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+        cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
         if cursor.fetchone():
             cursor.close()
             conn.close()
             return jsonify({"error": "Email already registered"}), 400
             
         cursor.execute(
-            "INSERT INTO users (email, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
+            "INSERT INTO users (email, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
             (email, hashed_pwd, full_name, role)
         )
         user_id = cursor.lastrowid
@@ -152,12 +152,18 @@ def login():
         
     try:
         conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor()
         
-        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-        user = cursor.fetchone()
+        cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+        user_row = cursor.fetchone()
         
-        if not user or not check_password_hash(user['password_hash'], password):
+        if not user_row:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Invalid email or password"}), 401
+            
+        user = dict(user_row)
+        if not check_password_hash(user['password_hash'], password):
             cursor.close()
             conn.close()
             return jsonify({"error": "Invalid email or password"}), 401
@@ -188,15 +194,16 @@ def get_me():
         
     try:
         conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id, email, full_name, role FROM users WHERE id = %s", (user_payload['user_id'],))
-        user = cursor.fetchone()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, email, full_name, role FROM users WHERE id = ?", (user_payload['user_id'],))
+        user_row = cursor.fetchone()
         cursor.close()
         conn.close()
         
-        if not user:
+        if not user_row:
             return jsonify({"error": "User not found"}), 404
             
+        user = dict(user_row)
         return jsonify({
             "id": user['id'],
             "email": user['email'],
@@ -271,14 +278,14 @@ def create_complaint():
     
     try:
         conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor()
         
         # Insert complaint, set status to 'Pending'
         cursor.execute("""
             INSERT INTO complaints (
                 complaint_number, user_id, category, severity, status, title, description,
                 latitude, longitude, address, city, state, pincode, image_url
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             complaint_number, user_payload['user_id'], category, severity, 'Pending', title, description,
             latitude, longitude, address, city, state, pincode, image_url
@@ -289,7 +296,7 @@ def create_complaint():
             is_correct = (ai_predicted_category == category)
             cursor.execute("""
                 INSERT INTO ai_logs (predicted_category, confirmed_category, is_correct, confidence)
-                VALUES (%s, %s, %s, %s)
+                VALUES (?, ?, ?, ?)
             """, (ai_predicted_category, category, is_correct, ai_confidence))
             
         conn.commit()
@@ -312,28 +319,21 @@ def get_complaints():
         
     try:
         conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor()
         
         if user_payload['role'] == 'admin':
             # Admin sees all complaints
             cursor.execute("SELECT * FROM complaints ORDER BY created_at DESC")
         else:
             # Citizen sees only their own complaints
-            cursor.execute("SELECT * FROM complaints WHERE user_id = %s ORDER BY created_at DESC", (user_payload['user_id'],))
+            cursor.execute("SELECT * FROM complaints WHERE user_id = ? ORDER BY created_at DESC", (user_payload['user_id'],))
             
-        complaints = cursor.fetchall()
+        rows = cursor.fetchall()
+        complaints = [dict(row) for row in rows]
+        
         cursor.close()
         conn.close()
         
-        # Convert date time types to strings
-        for c in complaints:
-            if c['created_at']:
-                c['created_at'] = c['created_at'].isoformat()
-            if c['updated_at']:
-                c['updated_at'] = c['updated_at'].isoformat()
-            if c['resolved_at']:
-                c['resolved_at'] = c['resolved_at'].isoformat()
-                
         return jsonify(complaints)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -343,22 +343,16 @@ def get_complaints():
 def get_complaint_by_number(complaint_number):
     try:
         conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM complaints WHERE complaint_number = %s", (complaint_number,))
-        complaint = cursor.fetchone()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM complaints WHERE complaint_number = ?", (complaint_number,))
+        row = cursor.fetchone()
         cursor.close()
         conn.close()
         
-        if not complaint:
+        if not row:
             return jsonify({"error": "Complaint not found"}), 404
             
-        if complaint['created_at']:
-            complaint['created_at'] = complaint['created_at'].isoformat()
-        if complaint['updated_at']:
-            complaint['updated_at'] = complaint['updated_at'].isoformat()
-        if complaint['resolved_at']:
-            complaint['resolved_at'] = complaint['resolved_at'].isoformat()
-            
+        complaint = dict(row)
         return jsonify(complaint)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -377,10 +371,10 @@ def update_complaint(complaint_number):
     
     try:
         conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor()
         
         # Verify it exists
-        cursor.execute("SELECT status FROM complaints WHERE complaint_number = %s", (complaint_number,))
+        cursor.execute("SELECT status FROM complaints WHERE complaint_number = ?", (complaint_number,))
         complaint = cursor.fetchone()
         if not complaint:
             cursor.close()
@@ -392,16 +386,16 @@ def update_complaint(complaint_number):
         params = []
         
         if status:
-            updates.append("status = %s")
+            updates.append("status = ?")
             params.append(status)
             if status == 'Resolved':
-                updates.append("resolved_at = %s")
-                params.append(datetime.now())
+                updates.append("resolved_at = ?")
+                params.append(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         if assigned_to is not None:
-            updates.append("assigned_to = %s")
+            updates.append("assigned_to = ?")
             params.append(assigned_to)
         if remarks is not None:
-            updates.append("authority_remarks = %s")
+            updates.append("authority_remarks = ?")
             params.append(remarks)
             
         if not updates:
@@ -410,7 +404,7 @@ def update_complaint(complaint_number):
             return jsonify({"message": "No updates provided"})
             
         params.append(complaint_number)
-        query = f"UPDATE complaints SET {', '.join(updates)} WHERE complaint_number = %s"
+        query = f"UPDATE complaints SET {', '.join(updates)} WHERE complaint_number = ?"
         cursor.execute(query, tuple(params))
         
         conn.commit()
@@ -426,7 +420,7 @@ def update_complaint(complaint_number):
 def get_analytics():
     try:
         conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor()
         
         # 1. Total complaints
         cursor.execute("SELECT COUNT(*) as total FROM complaints")
@@ -434,15 +428,15 @@ def get_analytics():
         
         # 2. Resolved vs Pending
         cursor.execute("SELECT status, COUNT(*) as count FROM complaints GROUP BY status")
-        status_split = cursor.fetchall()
+        status_split = [dict(row) for row in cursor.fetchall()]
         
         # 3. Complaints by category
         cursor.execute("SELECT category, COUNT(*) as count FROM complaints GROUP BY category")
-        category_split = cursor.fetchall()
+        category_split = [dict(row) for row in cursor.fetchall()]
         
         # 4. Complaints by area (city)
         cursor.execute("SELECT city, COUNT(*) as count FROM complaints WHERE city IS NOT NULL AND city != '' GROUP BY city")
-        area_split = cursor.fetchall()
+        area_split = [dict(row) for row in cursor.fetchall()]
         
         # 5. AI Prediction Accuracy
         cursor.execute("SELECT COUNT(*) as total_ai FROM ai_logs")
@@ -454,15 +448,28 @@ def get_analytics():
             correct_ai = cursor.fetchone()['correct_ai']
             accuracy = (correct_ai / total_ai) * 100.0
             
-        # 6. Monthly trend data (last 6 months)
-        cursor.execute("""
-            SELECT DATE_FORMAT(created_at, '%b %Y') as month, COUNT(*) as count 
-            FROM complaints 
-            GROUP BY month 
-            ORDER BY MIN(created_at) ASC 
-            LIMIT 6
-        """)
-        monthly_trend = cursor.fetchall()
+        # 6. Monthly trend data (last 6 months - calculated in Python for SQLite date-compatibility)
+        cursor.execute("SELECT created_at FROM complaints ORDER BY created_at ASC")
+        date_rows = cursor.fetchall()
+        
+        monthly_counts = {}
+        for row in date_rows:
+            date_str = row['created_at']
+            try:
+                # Timestamps stored in SQLite: "YYYY-MM-DD HH:MM:SS" or ISO formats
+                dt = datetime.strptime(date_str.split('.')[0], "%Y-%m-%d %H:%M:%S")
+                month_key = dt.strftime("%b %Y")
+                monthly_counts[month_key] = monthly_counts.get(month_key, 0) + 1
+            except Exception:
+                try:
+                    # Fallback for ISO format
+                    dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                    month_key = dt.strftime("%b %Y")
+                    monthly_counts[month_key] = monthly_counts.get(month_key, 0) + 1
+                except Exception:
+                    pass
+                    
+        monthly_trend = [{"month": k, "count": v} for k, v in monthly_counts.items()][-6:]
         
         cursor.close()
         conn.close()
