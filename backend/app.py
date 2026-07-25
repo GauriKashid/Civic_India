@@ -25,54 +25,26 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 JWT_SECRET = os.getenv("JWT_SECRET", "supersecretcivicindiajwtkey")
 
-# --- JWT helpers ---
+# --- JWT/Token helpers using itsdangerous ---
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
+
+# URLSafeTimedSerializer handles cryptographic signing, timing, and decoding safely.
+serializer = URLSafeTimedSerializer(JWT_SECRET)
+
 def generate_token(user_id, email, role):
-    header = {"alg": "HS256", "typ": "JWT"}
     payload = {
         "user_id": user_id,
         "email": email,
-        "role": role,
-        "exp": time.time() + 86400 * 7 # 7 days
+        "role": role
     }
-    
-    header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().replace("=", "")
-    payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().replace("=", "")
-    
-    signature = hmac.new(
-        JWT_SECRET.encode(),
-        f"{header_b64}.{payload_b64}".encode(),
-        hashlib.sha256
-    ).digest()
-    signature_b64 = base64.urlsafe_b64encode(signature).decode().replace("=", "")
-    
-    return f"{header_b64}.{payload_b64}.{signature_b64}"
+    return serializer.dumps(payload)
 
 def verify_token(token):
     try:
-        parts = token.split(".")
-        if len(parts) != 3:
-            return None
-        header_b64, payload_b64, signature_b64 = parts
-        
-        expected_sig = hmac.new(
-            JWT_SECRET.encode(),
-            f"{header_b64}.{payload_b64}".encode(),
-            hashlib.sha256
-        ).digest()
-        expected_sig_b64 = base64.urlsafe_b64encode(expected_sig).decode().replace("=", "")
-        
-        if not hmac.compare_digest(signature_b64.encode(), expected_sig_b64.encode()):
-            return None
-            
-        rem = len(payload_b64) % 4
-        if rem > 0:
-            payload_b64 += "=" * (4 - rem)
-        payload = json.loads(base64.urlsafe_b64decode(payload_b64.encode()).decode())
-        
-        if payload["exp"] < time.time():
-            return None
-            
-        return payload
+        # Max age of 7 days (7 * 86400 seconds)
+        return serializer.loads(token, max_age=604800)
+    except (SignatureExpired, BadSignature):
+        return None
     except Exception as e:
         print(f"Token verification failed: {e}")
         return None

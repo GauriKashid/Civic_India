@@ -1,6 +1,8 @@
 import os
 import numpy as np
 from cnn_model import SimpleCNN, CATEGORIES, model_path
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
+from sklearn.model_selection import cross_val_score
 
 # Generate synthetic dataset representing 8 classes of civic issues
 def generate_synthetic_data(num_samples_per_class=20):
@@ -50,82 +52,11 @@ def generate_synthetic_data(num_samples_per_class=20):
             
     return np.array(X), np.array(y)
 
-# Backprop training loop for the custom NumPy CNN
-def train_one_sample(model, X_sample, y_label, lr=0.01):
-    # 1. Forward Pass
-    probs = model.forward(X_sample)
-    
-    # One-hot target
-    target = np.zeros((model.num_classes, 1))
-    target[y_label] = 1.0
-    
-    # Loss: Cross Entropy
-    loss = -np.log(probs[y_label] + 1e-15)
-    
-    # 2. Backward Pass
-    # Gradient of FC layer
-    d_fc_out = probs - target  # shape (num_classes, 1)
-    d_W_fc = np.dot(d_fc_out, model.flat_out.T)
-    d_b_fc = d_fc_out
-    d_flat_out = np.dot(model.W_fc.T, d_fc_out)  # shape (fc_in_dim, 1)
-    
-    # Reshape d_flat_out to pool_out shape
-    d_pool_out = d_flat_out.reshape(model.num_filters, model.pool_out_h, model.pool_out_w)
-    
-    # Max Pool Backward Pass
-    d_relu_out = np.zeros_like(model.relu_out)
-    for f in range(model.num_filters):
-        for i in range(model.pool_out_h):
-            for j in range(model.pool_out_w):
-                # Locate the index of max value in the patch
-                h_start = i * model.pool_size
-                h_end = h_start + model.pool_size
-                w_start = j * model.pool_size
-                w_end = w_start + model.pool_size
-                
-                patch = model.relu_out[f, h_start:h_end, w_start:w_end]
-                max_val = np.max(patch)
-                
-                for pi in range(model.pool_size):
-                    for pj in range(model.pool_size):
-                        if patch[pi, pj] == max_val:
-                            d_relu_out[f, h_start + pi, w_start + pj] = d_pool_out[f, i, j]
-                            break
-                            
-    # ReLU Backward Pass
-    d_conv_out = d_relu_out * (model.conv_out > 0)
-    
-    # Conv Backward Pass
-    d_filters = np.zeros_like(model.filters)
-    d_conv_bias = np.zeros_like(model.conv_bias)
-    
-    C, H, W = X_sample.shape
-    for f in range(model.num_filters):
-        d_conv_bias[f] = np.sum(d_conv_out[f])
-        for c in range(C):
-            for i in range(model.input_shape[1] - model.filter_size + 1):
-                for j in range(model.input_shape[2] - model.filter_size + 1):
-                    d_filters[f, c] += d_conv_out[f, i, j] * X_sample[c, i:i+model.filter_size, j:j+model.filter_size]
-                    
-    # Update Weights via SGD
-    model.W_fc -= lr * d_W_fc
-    model.b_fc -= lr * d_b_fc
-    model.filters -= lr * d_filters
-    model.conv_bias -= lr * d_conv_bias
-    
-    return loss[0]
-
+# Simplified training helper using standard scikit-learn fitting
 def train_model(model, X, y, epochs=10, lr=0.01):
-    for epoch in range(epochs):
-        # Shuffle
-        indices = np.arange(len(X))
-        np.random.shuffle(indices)
-        epoch_loss = 0
-        for idx in indices:
-            loss = train_one_sample(model, X[idx], y[idx], lr)
-            epoch_loss += loss
-        # print(f"Epoch {epoch+1}/{epochs} - Avg Loss: {epoch_loss / len(X):.4f}")
+    model.train(X, y)
 
+# Evaluate metrics using standard scikit-learn metrics instead of custom formulas
 def evaluate(model, X_eval, y_eval):
     y_pred = []
     for x in X_eval:
@@ -133,35 +64,16 @@ def evaluate(model, X_eval, y_eval):
         y_pred.append(np.argmax(probs))
     y_pred = np.array(y_pred)
     
-    # Accuracy
-    accuracy = np.mean(y_pred == y_eval)
+    accuracy = accuracy_score(y_eval, y_pred)
+    precision = precision_score(y_eval, y_pred, average=None, zero_division=0).tolist()
+    recall = recall_score(y_eval, y_pred, average=None, zero_division=0).tolist()
+    f1 = f1_score(y_eval, y_pred, average=None, zero_division=0).tolist()
     
-    # Precision, Recall, F1
-    num_classes = len(CATEGORIES)
-    precision = []
-    recall = []
-    f1_score = []
+    avg_precision = precision_score(y_eval, y_pred, average='macro', zero_division=0)
+    avg_recall = recall_score(y_eval, y_pred, average='macro', zero_division=0)
+    avg_f1 = f1_score(y_eval, y_pred, average='macro', zero_division=0)
     
-    confusion_matrix = np.zeros((num_classes, num_classes), dtype=int)
-    for t_val, p_val in zip(y_eval, y_pred):
-        confusion_matrix[t_val, p_val] += 1
-        
-    for c in range(num_classes):
-        tp = confusion_matrix[c, c]
-        fp = np.sum(confusion_matrix[:, c]) - tp
-        fn = np.sum(confusion_matrix[c, :]) - tp
-        
-        prec = tp / (tp + fp) if (tp + fp) > 0 else 0
-        rec = tp / (tp + fn) if (tp + fn) > 0 else 0
-        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0
-        
-        precision.append(prec)
-        recall.append(rec)
-        f1_score.append(f1)
-        
-    avg_precision = np.mean(precision)
-    avg_recall = np.mean(recall)
-    avg_f1 = np.mean(f1_score)
+    cm = confusion_matrix(y_eval, y_pred)
     
     return {
         'accuracy': accuracy,
@@ -170,31 +82,16 @@ def evaluate(model, X_eval, y_eval):
         'f1_score': avg_f1,
         'class_precision': precision,
         'class_recall': recall,
-        'class_f1': f1_score,
-        'confusion_matrix': confusion_matrix
+        'class_f1': f1,
+        'confusion_matrix': cm
     }
 
+# Simplified cross-validation helper using standard cross_val_score
 def cross_validate(X, y, k=5, epochs=5, lr=0.01):
-    fold_size = len(X) // k
-    indices = np.arange(len(X))
-    np.random.shuffle(indices)
-    
-    accuracies = []
-    
-    for fold in range(k):
-        val_indices = indices[fold*fold_size : (fold+1)*fold_size]
-        train_indices = np.setdiff1d(indices, val_indices)
-        
-        X_train, y_train = X[train_indices], y[train_indices]
-        X_val, y_val = X[val_indices], y[val_indices]
-        
-        fold_model = SimpleCNN()
-        train_model(fold_model, X_train, y_train, epochs=epochs, lr=lr)
-        
-        metrics = evaluate(fold_model, X_val, y_val)
-        accuracies.append(metrics['accuracy'])
-        
-    return accuracies
+    X_flat = X.reshape(len(X), -1)
+    dummy_model = SimpleCNN()
+    scores = cross_val_score(dummy_model.clf, X_flat, y, cv=k)
+    return scores
 
 def main():
     print("--- STEP 8: Model Evaluation (Development Phase) ---")
@@ -217,9 +114,9 @@ def main():
     print(f"Train samples: {len(X_train)}")
     print(f"Test samples: {len(X_test)}")
     
-    print("\nTraining CNN Model using NumPy Backpropagation...")
+    print("\nTraining MLP Neural Network Model using scikit-learn...")
     model = SimpleCNN()
-    train_model(model, X_train, y_train, epochs=3, lr=0.05)
+    train_model(model, X_train, y_train)
     
     print("\nEvaluating Model on Test Data...")
     metrics = evaluate(model, X_test, y_test)
@@ -239,7 +136,7 @@ def main():
         print(f"{CATEGORIES[idx][:10]:10} | {row_str}")
         
     print("\nRunning 3-Fold Cross-Validation...")
-    cv_scores = cross_validate(X, y, k=3, epochs=1, lr=0.05)
+    cv_scores = cross_validate(X, y, k=3)
     print(f"CV Fold Accuracies: {cv_scores}")
     print(f"Average CV Accuracy: {np.mean(cv_scores):.4f}")
     

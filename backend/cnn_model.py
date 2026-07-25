@@ -2,6 +2,8 @@ import os
 import numpy as np
 import pickle
 from PIL import Image
+from sklearn.neural_network import MLPClassifier
+from sklearn.exceptions import NotFittedError
 
 CATEGORIES = ['garbage', 'pothole', 'streetlight', 'traffic', 'water_supply', 'vandalism', 'drainage', 'other']
 
@@ -9,79 +11,37 @@ class SimpleCNN:
     def __init__(self, input_shape=(3, 32, 32), num_classes=8):
         self.input_shape = input_shape
         self.num_classes = num_classes
-        self.num_filters = 8
-        self.filter_size = 3
-        self.pool_size = 2
-        
-        # Initialize filter weights and biases
-        # Filters shape: (num_filters, channels, filter_size, filter_size)
-        self.filters = np.random.randn(self.num_filters, input_shape[0], self.filter_size, self.filter_size) * 0.1
-        self.conv_bias = np.zeros((self.num_filters, 1, 1))
-        
-        conv_out_h = input_shape[1] - self.filter_size + 1
-        conv_out_w = input_shape[2] - self.filter_size + 1
-        
-        self.pool_out_h = conv_out_h // self.pool_size
-        self.pool_out_w = conv_out_w // self.pool_size
-        self.fc_in_dim = self.num_filters * self.pool_out_h * self.pool_out_w
-        
-        # FC layer weights and biases
-        self.W_fc = np.random.randn(num_classes, self.fc_in_dim) * np.sqrt(2.0 / self.fc_in_dim)
-        self.b_fc = np.zeros((num_classes, 1))
-        
-    def conv_forward(self, X):
-        C, H, W = X.shape
-        out_h = H - self.filter_size + 1
-        out_w = W - self.filter_size + 1
-        out = np.zeros((self.num_filters, out_h, out_w))
-        
-        for f in range(self.num_filters):
-            for c in range(C):
-                for i in range(out_h):
-                    for j in range(out_w):
-                        patch = X[c, i:i+self.filter_size, j:j+self.filter_size]
-                        out[f, i, j] += np.sum(patch * self.filters[f, c])
-            out[f] += self.conv_bias[f]
-        return out
-        
-    def maxpool_forward(self, X):
-        F, H, W = X.shape
-        out_h = H // self.pool_size
-        out_w = W // self.pool_size
-        out = np.zeros((F, out_h, out_w))
-        
-        for f in range(F):
-            for i in range(out_h):
-                for j in range(out_w):
-                    patch = X[f, i*self.pool_size:(i+1)*self.pool_size, j*self.pool_size:(j+1)*self.pool_size]
-                    out[f, i, j] = np.max(patch)
-        return out
-
-    def relu(self, X):
-        return np.maximum(0, X)
-        
-    def softmax(self, z):
-        exp_z = np.exp(z - np.max(z))
-        return exp_z / np.sum(exp_z, axis=0, keepdims=True)
+        # Use MLPClassifier to replace the complex manual CNN.
+        # This standard neural network is clean, fast, and easy to maintain.
+        self.clf = MLPClassifier(
+            hidden_layer_sizes=(64, 32),
+            activation='relu',
+            solver='adam',
+            max_iter=50,
+            random_state=42
+        )
+        self.is_fitted = False
         
     def forward(self, X):
-        # Input shape: (C, H, W)
-        self.last_input = X
+        # Flatten input: X is of shape (C, H, W) e.g., (3, 32, 32)
+        X_flat = X.flatten().reshape(1, -1)
         
-        # Conv + ReLU
-        self.conv_out = self.conv_forward(X)
-        self.relu_out = self.relu(self.conv_out)
-        
-        # Max Pooling
-        self.pool_out = self.maxpool_forward(self.relu_out)
-        
-        # Flatten
-        self.flat_out = self.pool_out.flatten().reshape(-1, 1)
-        
-        # FC + Softmax
-        self.fc_out = np.dot(self.W_fc, self.flat_out) + self.b_fc
-        self.probs = self.softmax(self.fc_out)
-        return self.probs
+        if not self.is_fitted:
+            # Return uniform probabilities if not yet trained
+            return np.ones((self.num_classes, 1)) / self.num_classes
+            
+        try:
+            probs = self.clf.predict_proba(X_flat)[0]
+            return probs.reshape(-1, 1)
+        except NotFittedError:
+            return np.ones((self.num_classes, 1)) / self.num_classes
+
+    def train(self, X_train, y_train):
+        # X_train shape: (N, C, H, W). Flatten to (N, C*H*W)
+        N = X_train.shape[0]
+        X_flat = X_train.reshape(N, -1)
+        self.clf.fit(X_flat, y_train)
+        self.is_fitted = True
 
     def save(self, filepath):
         with open(filepath, 'wb') as f:
@@ -118,9 +78,9 @@ def get_model():
     if os.path.exists(model_path):
         try:
             _model = SimpleCNN.load(model_path)
-            print("Loaded trained CNN model weights.")
+            print("Loaded trained model weights.")
         except Exception as e:
-            print(f"Failed to load CNN model: {e}")
+            print(f"Failed to load model: {e}")
             _model = SimpleCNN()
     else:
         print("Model file not found. Initializing a new model.")
