@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CivicIndia - Help & FAQ</title>
+  
+  <!-- Premium Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #0a0f1d;
+      --card-bg: rgba(30, 41, 59, 0.4);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary-saffron: #ff6a00;
+      --primary-green: #10b981;
+      --text-main: #ffffff;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      background-color: var(--bg-dark);
+      font-family: 'Poppins', sans-serif;
+      color: var(--text-main);
+    }
+
+    body {
+      background: radial-gradient(circle at 10% 20%, rgba(255, 106, 0, 0.06) 0%, transparent 40%),
+                  radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.06) 0%, transparent 40%);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 1000;
+      background: rgba(10, 15, 29, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 1.25rem 2rem;
+    }
+
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 1.5rem;
+      background: linear-gradient(135deg, var(--primary-saffron) 0%, #ffaa00 50%, var(--primary-green) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: color 0.3s ease;
+    }
+
+    nav a:hover {
+      color: var(--text-main);
+    }
+
+    .btn-launch {
+      background: linear-gradient(135deg, var(--primary-saffron) 0%, #ff8c00 100%);
+      color: white;
+      padding: 0.6rem 1.25rem;
+      border-radius: 8px;
+      font-weight: 600;
+      text-decoration: none;
+      font-size: 0.95rem;
+      transition: all 0.3s ease;
+    }
+
+    .btn-launch:hover {
+      transform: translateY(-2px);
+    }
+
+    /* Main Container */
+    .container {
+      max-width: 900px;
+      margin: 8rem auto 4rem;
+      padding: 0 2rem;
+    }
+
+    h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.75rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      text-align: center;
+      font-size: 1.1rem;
+      margin-bottom: 4rem;
+    }
+
+    /* FAQ Card */
+    .faq-item {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(12px);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .faq-item:hover {
+      border-color: rgba(255, 106, 0, 0.2);
+      transform: translateY(-2px);
+    }
+
+    h2.faq-question {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    h2.faq-question span.number {
+      color: var(--primary-saffron);
+      background: rgba(255, 106, 0, 0.1);
+      padding: 0.15rem 0.5rem;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+
+    .faq-answer {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.7;
+    }
+
+    .faq-answer p {
+      margin-bottom: 0.75rem;
+    }
+
+    .faq-answer ul {
+      margin-left: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    /* Footer */
+    footer {
+      background: #070a14;
+      border-top: 1px solid var(--card-border);
+      padding: 3rem 2rem;
+      text-align: center;
+      margin-top: 6rem;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    .footer-links a:hover {
+      color: var(--text-main);
+    }
+
+    .copyright {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header>
+    <div class="nav-container">
+      <a href="landing.html" class="logo">
+        CivicIndia <span>Portal</span>
+      </a>
+      <nav>
+        <a href="landing.html">Landing</a>
+        <a href="info.html">Help & FAQ</a>
+        <a href="/" class="btn-launch">Launch App</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Content Container -->
+  <main class="container">
+    <h1>Help & Frequently Asked Questions</h1>
+    <p class="subtitle">Get details on how the CivicIndia portal facilitates grievance redressal using technology.</p>
+
+    <!-- FAQ list -->
+    <div class="faq-item">
+      <h2 class="faq-question">
+        <span class="number">01</span> How does the AI image classification model work?
+      </h2>
+      <div class="faq-answer">
+        <p>
+          When you upload an image of a civic issue (like garbage piles or pothole spots), our backend passes the image dimensions and textures to a trained <strong>Multi-Layer Perceptron (MLP) neural network model</strong>.
+        </p>
+        <p>
+          The model outputs probability values for 8 standard categories (Garbage, Pothole, Streetlight, Traffic, Water Supply, Vandalism, Drainage, and Other) and automatically suggests the category with the highest confidence level.
+        </p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <h2 class="faq-question">
+        <span class="number">02</span> Can I override the category suggested by the AI?
+      </h2>
+      <div class="faq-answer">
+        <p>
+          Yes! If you upload an image and the AI classification result is incorrect, or if you prefer to choose manually, you can simply click "Change Category" and select the appropriate option from the dropdown menu.
+        </p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <h2 class="faq-question">
+        <span class="number">03</span> How does the duplicate prevention check work?
+      </h2>
+      <div class="faq-answer">
+        <p>
+          To avoid spamming municipal officers with multiple tickets for the same issue, the application queries other active complaints in the same city. If a ticket with the same category exists, it shows an alert suggesting that you track the existing ticket instead.
+        </p>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <h2 class="faq-question">
+        <span class="number">04</span> What are the possible statuses of a complaint?
+      </h2>
+      <div class="faq-answer">
+        <p>
+          Every report progresses through a standard workflow visible on the timeline:
+        </p>
+        <ul>
+          <li><strong>Pending</strong>: Submitted by a citizen and waiting to be assigned to an officer.</li>
+          <li><strong>In Progress</strong>: Assigned to a municipal department officer.</li>
+          <li><strong>Resolved</strong>: Addressed and resolved by the local municipal authorities.</li>
+          <li><strong>Rejected</strong>: Flagged as invalid, spam, or out-of-scope.</li>
+        </ul>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-links">
+      <a href="/">React Portal</a>
+      <a href="landing.html">Landing Page</a>
+      <a href="info.html">Help & FAQ</a>
+    </div>
+    <p class="copyright">
+      &copy; 2026 CivicIndia. Built with vanilla HTML/CSS, scikit-learn, and React.
+    </p>
+  </footer>
+
+</body>
+</html>

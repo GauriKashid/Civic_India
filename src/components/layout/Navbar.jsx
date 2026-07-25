@@ -59,8 +59,13 @@ export default function Navbar() {
         ]}, void 0, true, {fileName: _jsxFileName, lineNumber: 40}, this)
 
         /* Desktop Navigation */
-        , _jsxDEV('div', { className: "hidden lg:flex lg:items-center lg:gap-1"   , children: 
-          navigation.map((item) => (
+        , _jsxDEV('div', { className: "hidden lg:flex lg:items-center lg:gap-1"   , children: [
+          _jsxDEV('a', {
+            href: "/landing.html",
+            className: "px-3 py-2 text-sm font-medium rounded-lg text-foreground/70 hover:text-foreground hover:bg-muted transition-colors",
+            children: "Landing"
+          }, "nav_static_landing", false, {fileName: _jsxFileName, lineNumber: 63}, this)
+          , navigation.map((item) => (
             _jsxDEV(Link, {
 
               to: item.href,
@@ -74,7 +79,7 @@ export default function Navbar() {
               t(item.key)
             }, item.key, false, {fileName: _jsxFileName, lineNumber: 64}, this)
           ))
-        }, void 0, false, {fileName: _jsxFileName, lineNumber: 62}, this)
+        ]}, void 0, true, {fileName: _jsxFileName, lineNumber: 62}, this)
 
         /* Language & Auth Section */
         , _jsxDEV('div', { className: "hidden lg:flex lg:items-center lg:gap-3"   , children: [
@@ -191,7 +196,13 @@ export default function Navbar() {
       , mobileMenuOpen && (
         _jsxDEV('div', { className: "lg:hidden border-t border-border"  , children: 
           _jsxDEV('div', { className: "container mx-auto px-4 py-4 space-y-2"    , children: [
-            navigation.map((item) => (
+            _jsxDEV('a', {
+              href: "/landing.html",
+              onClick: () => setMobileMenuOpen(false),
+              className: "block px-4 py-3 text-sm font-medium rounded-lg text-foreground/70 hover:text-foreground hover:bg-muted transition-colors",
+              children: "Landing"
+            }, "nav_static_landing_mobile", false, {fileName: _jsxFileName, lineNumber: 194}, this)
+            , navigation.map((item) => (
               _jsxDEV(Link, {
 
                 to: item.href,

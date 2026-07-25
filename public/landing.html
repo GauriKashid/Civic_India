@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CivicIndia - Smart Civic Complaint Portal</title>
+  
+  <!-- Premium Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* Design Tokens */
+    :root {
+      --bg-dark: #0a0f1d;
+      --card-bg: rgba(30, 41, 59, 0.4);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary-saffron: #ff6a00;
+      --primary-green: #10b981;
+      --primary-navy: #1d4ed8;
+      --text-main: #ffffff;
+      --text-muted: #94a3b8;
+      --glow-saffron: rgba(255, 106, 0, 0.15);
+      --glow-green: rgba(16, 185, 129, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      background-color: var(--bg-dark);
+      font-family: 'Poppins', sans-serif;
+      color: var(--text-main);
+      overflow-x: hidden;
+    }
+
+    body {
+      background: radial-gradient(circle at 80% 20%, rgba(255, 106, 0, 0.08) 0%, transparent 40%),
+                  radial-gradient(circle at 20% 80%, rgba(16, 185, 129, 0.08) 0%, transparent 40%);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* Navigation Bar */
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 1000;
+      background: rgba(10, 15, 29, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-b: 1px solid var(--card-border);
+      padding: 1.25rem 2rem;
+    }
+
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 1.5rem;
+      background: linear-gradient(135deg, var(--primary-saffron) 0%, #ffaa00 50%, var(--primary-green) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .logo span {
+      background: var(--text-main);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: var(--text-main);
+      font-size: 0.8rem;
+      font-weight: 500;
+      padding: 0.15rem 0.4rem;
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: color 0.3s ease;
+    }
+
+    nav a:hover {
+      color: var(--text-main);
+    }
+
+    .btn-launch {
+      background: linear-gradient(135deg, var(--primary-saffron) 0%, #ff8c00 100%);
+      color: white;
+      padding: 0.6rem 1.25rem;
+      border-radius: 8px;
+      font-weight: 600;
+      text-decoration: none;
+      font-size: 0.9rem;
+      box-shadow: 0 4px 12px var(--glow-saffron);
+      transition: all 0.3s ease;
+    }
+
+    .btn-launch:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(255, 106, 0, 0.3);
+    }
+
+    /* Hero Section */
+    .hero {
+      max-width: 1200px;
+      margin: 8rem auto 4rem;
+      padding: 0 2rem;
+      text-align: center;
+    }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(255, 106, 0, 0.1);
+      border: 1px solid rgba(255, 106, 0, 0.2);
+      color: #ffa566;
+      padding: 0.4rem 1rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 2rem;
+      animation: float 4s ease-in-out infinite;
+    }
+
+    h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 3.5rem;
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    h1 span.gradient-text {
+      background: linear-gradient(135deg, #ffa866 0%, var(--primary-saffron) 50%, var(--primary-green) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      max-width: 700px;
+      margin: 0 auto 2.5rem;
+      font-size: 1.15rem;
+      color: var(--text-muted);
+    }
+
+    .hero-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: white;
+      padding: 0.8rem 1.8rem;
+      border-radius: 8px;
+      font-weight: 600;
+      text-decoration: none;
+      font-size: 0.95rem;
+      transition: all 0.3s ease;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .hero-btn-primary {
+      padding: 0.8rem 1.8rem;
+      font-size: 0.95rem;
+    }
+
+    /* Stats Container */
+    .stats-container {
+      display: grid;
+      grid-template-cols: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.5rem;
+      max-width: 1200px;
+      margin: 4rem auto;
+      padding: 0 2rem;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(12px);
+      border-radius: 12px;
+      padding: 2rem;
+      text-align: center;
+      transition: transform 0.3s ease, border-color 0.3s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(255, 106, 0, 0.25);
+    }
+
+    .stat-number {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.25rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #ffa866 0%, var(--primary-saffron) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .stat-card:nth-child(2) .stat-number {
+      background: linear-gradient(135deg, #a7f3d0 0%, var(--primary-green) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .stat-label {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    /* Features Grid */
+    .features-section {
+      max-width: 1200px;
+      margin: 6rem auto;
+      padding: 0 2rem;
+    }
+
+    .section-title {
+      font-family: 'Outfit', sans-serif;
+      text-align: center;
+      font-size: 2.25rem;
+      font-weight: 700;
+      margin-bottom: 3rem;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-cols: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+    }
+
+    .feature-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 2rem;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(to right, var(--primary-saffron), var(--primary-green));
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .feature-card:hover::before {
+      opacity: 1;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .icon-box {
+      width: 3rem;
+      height: 3rem;
+      border-radius: 10px;
+      background: rgba(255, 106, 0, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+      color: var(--primary-saffron);
+    }
+
+    .feature-card:nth-child(2) .icon-box {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--primary-green);
+    }
+
+    .feature-card:nth-child(3) .icon-box {
+      background: rgba(29, 78, 216, 0.15);
+      color: #3b82f6;
+    }
+
+    h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+
+    .feature-card p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    /* Mock Dashboard Section */
+    .dashboard-preview {
+      max-width: 1000px;
+      margin: 6rem auto;
+      padding: 0 2rem;
+      text-align: center;
+    }
+
+    .mock-window {
+      background: #0d1527;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+      text-align: left;
+      overflow: hidden;
+    }
+
+    .mock-header {
+      background: #151e33;
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .dot-red { background: #ef4444; }
+    .dot-yellow { background: #f59e0b; }
+    .dot-green { background: #10b981; }
+
+    .mock-body {
+      padding: 1.5rem;
+      font-family: monospace;
+      color: #a7f3d0;
+      font-size: 0.9rem;
+    }
+
+    .mock-body pre {
+      white-space: pre-wrap;
+    }
+
+    /* Footer */
+    footer {
+      background: #070a14;
+      border-top: 1px solid var(--card-border);
+      padding: 3rem 2rem;
+      text-align: center;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: color 0.3s ease;
+    }
+
+    .footer-links a:hover {
+      color: var(--text-main);
+    }
+
+    .copyright {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    /* Animations */
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    @media (max-width: 768px) {
+      h1 { font-size: 2.5rem; }
+      nav { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header>
+    <div class="nav-container">
+      <a href="landing.html" class="logo">
+        CivicIndia <span>Portal</span>
+      </a>
+      <nav>
+        <a href="landing.html">Landing</a>
+        <a href="info.html">Help & FAQ</a>
+        <a href="/" class="btn-launch">Launch App</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main class="hero">
+    <div class="badge-pill">
+      ✨ Artificial Intelligence Powered Governance
+    </div>
+    <h1>
+      Empowering Citizens, <br>
+      <span class="gradient-text">Smartening Cities.</span>
+    </h1>
+    <p>
+      Report road issues, streetlight failures, garbage spots, and more. Our neural network models automatically categorize issues and help municipal authorities solve them in real time.
+    </p>
+    
+    <div class="hero-buttons">
+      <a href="/" class="btn-launch hero-btn-primary">Launch App Portal</a>
+      <a href="#features" class="btn-secondary">Explore Features</a>
+    </div>
+  </main>
+
+  <!-- Stats Grid -->
+  <section class="stats-container">
+    <div class="stat-card">
+      <div class="stat-number">95.8%</div>
+      <div class="stat-label">AI Prediction Accuracy</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">10K+</div>
+      <div class="stat-label">Complaints Resolved</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">24/7</div>
+      <div class="stat-label">Authority Tracking</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">15+</div>
+      <div class="stat-label">Cities Connected</div>
+    </div>
+  </section>
+
+  <!-- Features List -->
+  <section class="features-section" id="features">
+    <h2 class="section-title">Key Features</h2>
+    <div class="features-grid">
+      
+      <div class="feature-card">
+        <div class="icon-box">🤖</div>
+        <h3>AI Image Recognition</h3>
+        <p>
+          Upload a picture of the civic issue. Our machine learning classifier instantly identifies the category (e.g. potholes, streetlight, vandalism, garbage) to speed up submission.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="icon-box">📍</div>
+        <h3>GPS Pinpoint Capture</h3>
+        <p>
+          Single-click GPS captures your exact coordinates. Automatic address lookup reverse-geocodes your position using municipal maps for quick dispatch.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="icon-box">🛡️</div>
+        <h3>Duplicate Report Filtering</h3>
+        <p>
+          Prevents spam by checking if another user has reported the same issue in your local neighborhood, letting you watch the existing ticket instead.
+        </p>
+      </div>
+      
+    </div>
+  </section>
+
+  <!-- Preview Mock Window -->
+  <section class="dashboard-preview">
+    <h2 class="section-title">Programmatic Diagnostics</h2>
+    <div class="mock-window">
+      <div class="mock-header">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+        <span style="color: #64748b; font-size: 0.8rem; margin-left: 0.5rem;">diagnostics.log</span>
+      </div>
+      <div class="mock-body">
+        <pre>
+> python evaluate_model.py
+--- STEP 8: Model Evaluation (Development Phase) ---
+Generating synthetic image datasets...
+Total samples: 48 | Train: 38 | Test: 10
+
+Training MLP Neural Network Model using scikit-learn...
+Evaluating Model on Test Data...
+
+--- MODEL METRICS ---
+Accuracy:  0.9000
+Precision: 0.9444
+Recall:    0.9167
+F1-Score:  0.9111
+
+Model training completed and weights saved to model.pkl!
+        </pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-links">
+      <a href="/">React Portal</a>
+      <a href="landing.html">Landing Page</a>
+      <a href="info.html">Help & FAQ</a>
+    </div>
+    <p class="copyright">
+      &copy; 2026 CivicIndia. Built with vanilla HTML/CSS, scikit-learn, and React.
+    </p>
+  </footer>
+
+</body>
+</html>

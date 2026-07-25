@@ -138,6 +138,16 @@ export default function Footer() {
 
                 }, void 0, false, {fileName: _jsxFileName, lineNumber: 137}, this)
               }, void 0, false, {fileName: _jsxFileName, lineNumber: 136}, this)
+              , _jsxDEV('li', { children: 
+                _jsxDEV('a', { href: "/landing.html", className: "text-primary-foreground/70 hover:text-secondary transition-colors"  , children: "Static Portal"
+
+                }, void 0, false, {fileName: _jsxFileName, lineNumber: 138}, this)
+              }, void 0, false, {fileName: _jsxFileName, lineNumber: 138}, this)
+              , _jsxDEV('li', { children: 
+                _jsxDEV('a', { href: "/info.html", className: "text-primary-foreground/70 hover:text-secondary transition-colors"  , children: "Portal Help & FAQ"
+
+                }, void 0, false, {fileName: _jsxFileName, lineNumber: 139}, this)
+              }, void 0, false, {fileName: _jsxFileName, lineNumber: 139}, this)
             ]}, void 0, true, {fileName: _jsxFileName, lineNumber: 120}, this)
           ]}, void 0, true, {fileName: _jsxFileName, lineNumber: 118}, this)
         ]}, void 0, true, {fileName: _jsxFileName, lineNumber: 19}, this)
