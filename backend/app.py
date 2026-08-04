@@ -204,8 +204,11 @@ def predict():
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
         
-        # Run CNN prediction
-        predicted_cat, confidence = predict_category(file_path)
+        # Run CNN and Random Forest hybrid prediction
+        latitude = request.form.get('latitude')
+        longitude = request.form.get('longitude')
+        severity = request.form.get('severity', 'medium')
+        predicted_cat, confidence = predict_category(file_path, latitude, longitude, severity)
         
         # Public URL of the image
         image_url = f"http://localhost:5000/uploads/{filename}"
